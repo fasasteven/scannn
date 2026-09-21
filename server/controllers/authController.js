@@ -50,6 +50,8 @@ function validPassword(password) {
     && !containsEmoji(password);
 }
 
+const emailVerificationRequired = process.env.EMAIL_VERIFICATION_REQUIRED !== "false";
+
 function invalidText(value) {
   return typeof value !== "string" || !value.trim() || containsEmoji(value);
 }
@@ -136,11 +138,10 @@ export async function signup(req, res, next) {
     if (await User.exists({ registeredDeviceId: normalizedDeviceId }))
       return res.status(403).json({ message: "This device is already registered to another account." });
 
-    if (!emailConfigured())
-      return res.status(503).json({ message: "Email delivery is not configured. Set the SMTP variables before creating accounts." });
-
     const lecturerAccessCode = role === "lecturer" ? generateLecturerAccessCode() : undefined;
     const verificationToken = randomBytes(32).toString("hex");
+    const emailReady = emailConfigured();
+    const canBypassVerification = !emailVerificationRequired || !emailReady;
 
     const user = await User.create({
       name,
@@ -152,22 +153,25 @@ export async function signup(req, res, next) {
       matricNumber: role === "student" ? matricNumber : undefined,
       staffId: role === "lecturer" ? staffId : undefined,
       lecturerAccessCodeHash: lecturerAccessCode ? await bcrypt.hash(lecturerAccessCode, 12) : undefined,
-      emailVerificationTokenHash: createHash("sha256").update(verificationToken).digest("hex"),
-      emailVerificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      emailVerified: canBypassVerification,
+      emailVerificationTokenHash: canBypassVerification ? undefined : createHash("sha256").update(verificationToken).digest("hex"),
+      emailVerificationExpiresAt: canBypassVerification ? undefined : new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
-    try {
-      await sendVerificationEmail({ name, email: normalizedEmail, token: verificationToken });
-    } catch (mailError) {
-      await User.deleteOne({ _id: user._id });
-      throw mailError;
+    if (!canBypassVerification) {
+      try {
+        await sendVerificationEmail({ name, email: normalizedEmail, token: verificationToken });
+      } catch (mailError) {
+        await User.deleteOne({ _id: user._id });
+        throw mailError;
+      }
     }
 
     let accessCodeDelivered = false;
     const accessCodeEmailConfigured = emailConfigured();
     if (lecturerAccessCode) {
       try {
-        accessCodeDelivered = await sendLecturerAccessCodeEmail({ name, email, accessCode: lecturerAccessCode });
+        accessCodeDelivered = await sendLecturerAccessCodeEmail({ name, email: normalizedEmail, accessCode: lecturerAccessCode });
       } catch (mailError) {
         console.error("Lecturer access-code email failed:", mailError.message);
         await User.deleteOne({ _id: user._id });
@@ -175,10 +179,14 @@ export async function signup(req, res, next) {
       }
     }
 
+    const verificationMessage = canBypassVerification
+      ? "Account created. Email verification was skipped for this local setup. You can sign in immediately."
+      : "Account created. Check your email to verify your account before signing in.";
+
     res.status(201).json({
       lecturerAccessCode: accessCodeDelivered || accessCodeEmailConfigured ? undefined : lecturerAccessCode,
       accessCodeDelivered,
-      message: "Account created. Check your email to verify your account before signing in.",
+      message: verificationMessage,
     });
    }catch (error) {
         if (error.code === 11000) return res.status(409).json({
@@ -199,7 +207,7 @@ export async function login(req, res, next) {
       return res.status(401).json({ 
         message: "Incorrect email or password." 
     });
-    if (!user.emailVerified) return res.status(403).json({ message: "Verify your email address before signing in." });
+    if (emailVerificationRequired && !user.emailVerified) return res.status(403).json({ message: "Verify your email address before signing in." });
     if (user.role === "lecturer" && user.lecturerAccessCodeHash && !(await bcrypt.compare(req.body.lecturerAccessCode || "", user.lecturerAccessCodeHash))) 
       return res.status(401).json({ message: "Incorrect lecturer access code." });
     const normalizedDeviceId = normalizeDeviceId(req.body.deviceId);
