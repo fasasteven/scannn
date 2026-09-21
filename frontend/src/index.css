@@ -109,3 +109,57 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+body { background: #f4f7f5; }
+button, select, input { font: inherit; }
+button { cursor: pointer; border: 1px solid #c8d2cc; background: #fff; color: #17352b; border-radius: 6px; padding: 10px 14px; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+.page { width: min(1080px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0; text-align: left; }
+.page-header, .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.page-header { margin-bottom: 28px; }
+.page-header h1 { margin: 5px 0 8px; font-size: clamp(32px, 5vw, 52px); }
+.eyebrow { color: #27735a; font-size: 12px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; }
+.panel { background: #fff; border: 1px solid #dce5df; border-radius: 8px; padding: 28px; margin-top: 20px; box-shadow: 0 10px 28px rgba(25, 55, 41, .05); }
+.panel h2 { margin-top: 4px; }
+.step, .tag { display: inline-block; color: #27735a; background: #e6f2eb; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.notice { color: #225d47; background: #e6f2eb; border-left: 4px solid #318463; padding: 12px 14px; }
+.registration-form { display: grid; gap: 18px; max-width: 760px; margin-top: 24px; }
+label { display: grid; gap: 7px; color: #315044; font-size: 14px; font-weight: 700; }
+select { width: 100%; box-sizing: border-box; border: 1px solid #c8d2cc; border-radius: 5px; padding: 11px 12px; background: #fff; color: #17352b; }
+fieldset { border: 1px solid #dce5df; border-radius: 6px; padding: 14px; display: grid; gap: 8px; }
+legend { color: #315044; font-weight: 700; padding: 0 6px; }
+.course-choice { display: flex; align-items: center; gap: 10px; padding: 10px; background: #f6faf7; font-weight: 400; }
+.course-choice input { accent-color: #27735a; }
+.course-choice span { display: flex; gap: 8px; flex-wrap: wrap; }
+small { display: block; color: #728179; font-size: 12px; font-weight: 400; }
+.primary { background: #1d5943; border-color: #1d5943; color: #fff; }
+.course-list { display: grid; gap: 8px; }
+.course-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid #e8eee9; padding: 14px 0; }
+.course-row p { margin-top: 3px; }
+.attendance { color: #1d5943; border-color: #9fc5ae; font-size: 13px; }
+.inline-form { display: flex; gap: 10px; margin-top: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; border-top: 1px solid #e8eee9; padding: 14px 10px; vertical-align: top; }
+th { color: #728179; font-size: 12px; text-transform: uppercase; letter-spacing: .8px; }
+td .tag { margin: 0 5px 5px 0; }
+.table-wrap { overflow-x: auto; }
+.progress-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.progress-card { border: 1px solid #dce5df; border-radius: 6px; padding: 16px; }
+.progress-card .course-row { border-top: 0; padding: 0 0 12px; }
+.progress-track { height: 8px; background: #e8eee9; border-radius: 99px; overflow: hidden; }
+.progress-track span { display: block; height: 100%; border-radius: inherit; }
+.progress-good { color: #27735a; background-color: #27735a; }
+.progress-warn { color: #a36a12; background-color: #d7a43a; }
+.progress-low { color: #a13e3e; background-color: #c95c5c; }
+.muted { color: #728179; }
+.attendance-sheet { margin-top: 18px; }
+.session-card { display: flex; justify-content: space-between; gap: 20px; align-items: center; border-top: 1px solid #e8eee9; padding: 16px 0; }
+.access-code { color: #17352b; font-size: 34px; font-weight: 800; letter-spacing: 8px; margin-top: 10px; }
+.attendance-qr { display: block; width: 180px; height: 180px; margin-top: 12px; }
+.attendance-entry { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.attendance-entry input { width: 125px; border: 1px solid #c8d2cc; border-radius: 5px; padding: 10px; }
+.qr-reader { width: min(280px, 100%); margin-top: 12px; }
+@media (max-width: 640px) { .session-card { flex-direction: column; align-items: flex-start; } }
+.cell-present { color: #27735a; background: #edf8f0; }
+.cell-absent { color: #9d4949; background: #fff1f1; }
+@media (max-width: 640px) { .page { width: min(100% - 24px, 560px); padding: 24px 0; } .page-header, .section-heading, .course-row { flex-direction: column; } .panel { padding: 20px; } .inline-form { flex-direction: column; } .inline-form button { width: 100%; } }

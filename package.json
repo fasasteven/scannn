@@ -1,5 +1,11 @@
 {
   "dependencies": {
-    "mongodb": "^7.5.0"
+    "mongodb": "^7.6.0"
+  },
+  "scripts": {
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix server",
+    "start": "npm --prefix server start",
+    "dev:server": "npm --prefix server run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
   }
 }
