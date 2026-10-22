@@ -11,6 +11,7 @@ export async function protect(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     req.user = await User.findById(payload.userId);
     if (!req.user) return res.status(401).json({ message: "User no longer exists." });
+    if ((payload.authVersion || 0) !== (req.user.authVersion || 0)) return res.status(401).json({ message: "This session has expired. Please sign in again." });
     next();
   } catch {
     res.status(401).json({ message: "Invalid or expired token." });

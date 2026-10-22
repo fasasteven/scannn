@@ -3,6 +3,7 @@ import AttendanceRecord from "../models/AttendanceRecord.js";
 import Course from "../models/Course.js";
 import User from "../models/User.js";
 import { calculateDistanceMeters } from "../utils/calculateDistance.js";
+import { calculateMarkOutOfTen } from "../utils/attendanceMark.js";
 import { verifyPasskey } from "./passkeyController.js";
 import { randomInt } from "crypto";
 
@@ -107,6 +108,7 @@ export async function getStudentProgress(req, res, next) {
 				present,
 				absent: Math.max(courseSessions.length - present, 0),
 				percentage: courseSessions.length ? Math.round((present / courseSessions.length) * 100) : 0,
+				markOutOfTen: calculateMarkOutOfTen(present, courseSessions.length),
 				sessions: courseSessions.map((session) => ({ id: session._id, date: session.startsAt, status: courseRecords.some((record) => record.session.toString() === session._id.toString() && record.status === "present") ? "present" : "absent" })),
 			};
 		});
@@ -130,6 +132,7 @@ export async function getLecturerReport(req, res, next) {
 				present,
 				absent: sessions.length - present,
 				percentage: sessions.length ? Math.round((present / sessions.length) * 100) : 0,
+				markOutOfTen: calculateMarkOutOfTen(present, sessions.length),
 			};
 		});
 		res.json({ course, sessions, students: rows });
@@ -148,7 +151,7 @@ export async function exportLecturerReport(req, res, next) {
 		const sessions = await AttendanceSession.find({ course: course._id, active: false }).sort({ startsAt: 1 }).select("_id startsAt").lean();
 		const students = await User.find({ role: "student", registeredCourses: course._id }).select("name matricNumber email").sort({ name: 1 }).lean();
 		const records = await AttendanceRecord.find({ course: course._id, session: { $in: sessions.map((session) => session._id) } }).lean();
-		const headers = ["Student", "Matric Number", "Email", ...sessions.map((session) => new Date(session.startsAt).toISOString()), "Present", "Absent", "Percentage"];
+		const headers = ["Student", "Matric Number", "Email", ...sessions.map((session) => new Date(session.startsAt).toISOString()), "Present", "Absent", "Percentage", "Mark / 10"];
 		const rows = students.map((student) => {
 			const studentRecords = records.filter((record) => record.student.toString() === student._id.toString());
 			const present = studentRecords.filter((record) => record.status === "present").length;
@@ -157,7 +160,8 @@ export async function exportLecturerReport(req, res, next) {
 				return record ? `Present (${record.accessMethod || "unknown"}, ${record.authenticationMethod || "unknown"}, ${Number(record.distanceMeters || 0).toFixed(2)}m, accuracy ${record.locationAccuracy ?? "unknown"}m)` : "Absent";
 			});
 			const percentage = sessions.length ? Math.round((present / sessions.length) * 100) : 0;
-			return [student.name, student.matricNumber, student.email, ...cells, present, sessions.length - present, `${percentage}%`];
+			const markOutOfTen = calculateMarkOutOfTen(present, sessions.length);
+			return [student.name, student.matricNumber, student.email, ...cells, present, sessions.length - present, `${percentage}%`, markOutOfTen === null ? "" : markOutOfTen.toFixed(1)];
 		});
 		const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
 		res.setHeader("Content-Type", "text/csv; charset=utf-8");

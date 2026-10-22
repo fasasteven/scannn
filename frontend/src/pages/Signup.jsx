@@ -23,7 +23,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [issuedAccessCode, setIssuedAccessCode] = useState("");
   const [accessCodeDelivered, setAccessCodeDelivered] = useState(false);
-  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   function handleChange(event) {
     setFormData({
@@ -55,8 +55,6 @@ export default function Signup() {
 
     try {
       setLoading(true);
-      // console.log("Signup: sending request", { name: formData.name, email: formData.email, role });
-
       const response = await api.post("/auth/signup", {
         name: formData.name,
         phoneNumber: formData.phoneNumber,
@@ -68,14 +66,12 @@ export default function Signup() {
         staffId: role === "lecturer" ? formData.staffId : undefined,
       });
 
-      // console.log("Signup: response", response.data);
-
-      setEmailVerificationSent(true);
+      setAccountCreated(true);
+      setMessage(response.data.message);
 
       if (role === "lecturer") {
         setIssuedAccessCode(response.data.lecturerAccessCode);
         setAccessCodeDelivered(Boolean(response.data.accessCodeDelivered));
-        if (response.data.message) setMessage(response.data.message);
       }
     } catch (error) {
       setMessage(
@@ -92,10 +88,10 @@ export default function Signup() {
       <div className="content signup-content">
         <div className="text">Create Account</div>
 
-        {emailVerificationSent ? (
+        {accountCreated ? (
           <div className="signup-success">
-            <p>Your lecturer account has been created.</p>
-            <p>Check your email and click the verification link before logging in.</p>
+            <p>Your {role} account has been created.</p>
+            <p>{message}</p>
             {role === "lecturer" && (
               accessCodeDelivered ? (
                 <p>Your lecturer access code was sent to your email address.</p>

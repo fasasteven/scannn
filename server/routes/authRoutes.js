@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, logout, signup, verifyEmail } from "../controllers/authController.js";
+import { login, logout, requestPasswordReset, resetPassword, signup, verifyEmail } from "../controllers/authController.js";
 import { authenticationOptions, registrationOptions, registrationVerify } from "../controllers/passkeyController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authLimiter } from "../middleware/rateLimiters.js";
@@ -10,6 +10,8 @@ const router = Router();
 router.post("/signup", authLimiter, signup);
 router.post("/login", authLimiter, login);
 router.get("/verify-email", verifyEmail);
+router.post("/password-reset/request", authLimiter, requestPasswordReset);
+router.post("/password-reset/confirm", authLimiter, resetPassword);
 router.post("/logout", logout);
 router.post("/recovery/:userId/revoke", protect, allowRoles("admin"), revokeUserAccess);
 router.post("/passkey/register/options", protect, registrationOptions);

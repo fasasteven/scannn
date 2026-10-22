@@ -63,3 +63,23 @@ export async function sendVerificationEmail({ name, email, token }) {
 	});
 	return true;
 }
+
+export async function sendPasswordResetEmail({ name, email, token }) {
+	if (!emailConfigured()) return false;
+	const safeName = escapeHtml(name);
+	const resetUrl = `${process.env.CLIENT_ORIGIN || "http://localhost:5173"}/reset-password?token=${encodeURIComponent(token)}`;
+	const transporter = nodemailer.createTransport({
+		host: process.env.SMTP_HOST,
+		port: Number(process.env.SMTP_PORT || 587),
+		secure: process.env.SMTP_SECURE === "true",
+		auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+	});
+	await transporter.sendMail({
+		from: process.env.MAIL_FROM,
+		to: email,
+		subject: "Reset your QR Attendance password",
+		text: `Hello ${name}, reset your password by opening: ${resetUrl}\n\nThis link expires in one hour. If you did not request a reset, you can ignore this email.`,
+		html: `<p>Hello ${safeName},</p><p>Reset your QR Attendance password:</p><p><a href="${resetUrl}">Reset password</a></p><p>This link expires in one hour. If you did not request a reset, you can ignore this email.</p>`,
+	});
+	return true;
+}

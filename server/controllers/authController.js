@@ -1,10 +1,8 @@
 import bcrypt from "bcryptjs";
-import { randomInt } from "crypto";
+import { createHash, randomBytes, randomInt } from "crypto";
 import User from "../models/User.js";
 import { generateToken } from "../utils/generateToken.js";
-import { emailConfigured, sendLecturerAccessCodeEmail } from "../utils/mailer.js";
-import { randomBytes, createHash } from "crypto";
-import { sendVerificationEmail } from "../utils/mailer.js";
+import { emailConfigured, sendLecturerAccessCodeEmail, sendPasswordResetEmail, sendVerificationEmail } from "../utils/mailer.js";
 import { clearAuthCookie, setAuthCookie } from "../utils/authCookie.js";
 
 function publicUser(user) {
@@ -235,6 +233,62 @@ export async function verifyEmail(req, res, next) {
     await user.save();
     res.json({ message: "Email verified. You can now sign in." });
   } catch (error) { next(error); }
+}
+
+export async function requestPasswordReset(req, res, next) {
+  try {
+    const email = req.body?.email?.trim().toLowerCase();
+    if (!validEmail(email) || containsEmoji(email)) return res.status(400).json({ message: "Enter a valid email address." });
+
+    const user = await User.findOne({ email });
+    if (user) {
+      const token = randomBytes(32).toString("hex");
+      user.passwordResetTokenHash = createHash("sha256").update(token).digest("hex");
+      user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await user.save();
+
+      try {
+        const sent = await sendPasswordResetEmail({ name: user.name, email: user.email, token });
+        if (!sent) throw new Error("Password reset email is not configured.");
+      } catch (mailError) {
+        user.passwordResetTokenHash = undefined;
+        user.passwordResetExpiresAt = undefined;
+        await user.save();
+        console.error("Password reset email failed:", mailError.message);
+      }
+    }
+
+    res.status(202).json({ message: "If an account exists for that email, password reset instructions will be sent." });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body || {};
+    if (typeof token !== "string" || !token) return res.status(400).json({ message: "A valid password reset link is required." });
+    if (typeof password !== "string" || !validPassword(password)) {
+      return res.status(400).json({ message: "Password must be longer than 8 characters, include one uppercase letter and one special character, and contain no emojis." });
+    }
+
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { $gt: new Date() },
+    }).select("+passwordResetTokenHash +passwordResetExpiresAt");
+    if (!user) return res.status(400).json({ message: "This password reset link is invalid or expired. Request a new one." });
+
+    user.password = await bcrypt.hash(password, 12);
+    user.authVersion = (user.authVersion || 0) + 1;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+    await user.save();
+
+    res.json({ message: "Your password has been reset. You can now sign in with your new password." });
+  } catch (error) {
+    next(error);
+  }
 }
 
 export function logout(req, res) {

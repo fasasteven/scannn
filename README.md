@@ -1,34 +1,35 @@
 # QR Attendance Management System
 
-A MERN-stack web application that records school attendance through lecturer-selected six-digit codes or QR codes. Lecturers create attendance sessions for their courses, while enrolled students submit the class credential and are verified by server-side geolocation.
+A MERN-stack web application that records school attendance through lecturer-selected six-digit codes or QR codes. Lecturers create attendance sessions for their courses, while enrolled students submit the class credential, a passkey assertion, and browser location for server-side geofence validation.
 
-The current implementation includes password authentication, lecturer access codes, one-device account binding, role-protected dashboards, course registration, QR scanning, six-digit attendance codes, geofence validation, attendance reports, and CSV export. Facial biometric verification is not implemented yet; device binding is an abuse-control measure and must not be described as facial recognition.
+The current implementation includes password authentication, email verification, password reset, lecturer access codes, browser-local device binding, role-protected dashboards, course registration, QR scanning, six-digit attendance codes, passkey verification, geofence validation, attendance marks, attendance reports, and CSV export. Facial biometric verification is not implemented; passkeys and device binding must not be described as facial recognition. Browser location and local device identifiers are abuse controls, not proof that a device is physically present or tamper-proof.
 
 ## Project Goal
 
 This project replaces paper attendance sheets with a simple digital system. It allows a lecturer to manage courses, begin an attendance session, and see which students attended. Students can enrol in courses, scan a lecturer's QR code during class, and view their attendance score.
 
-The attendance score can contribute up to **10 marks** to a student's course grade.
+The attendance mark is calculated out of **10** from completed sessions. It is an attendance measure; whether and how it contributes to a course grade is an academic policy decision.
 
 ## Users and Roles
 
 | Role | What they can do |
 | --- | --- |
-| Lecturer / Admin | Create courses, view enrolled students, start and end attendance, display a rotating QR code, view records, and export attendance data. |
-| Student | Create an account, enrol in courses, scan attendance QR codes while at the class location, and view attendance history and marks. |
+| Lecturer | Create courses, start and end attendance, display a QR code or six-digit code, view course attendance reports, and export attendance data. |
+| Student | Create an account, enrol in courses, scan attendance QR codes or enter six-digit codes, and view attendance percentage and mark. |
 
 ## Core Features
 
-- Student and lecturer sign-up and login.
+- Student and lecturer sign-up and login with email verification and password reset.
 - Role-based dashboards.
 - Course creation and student course enrolment.
 - Attendance sessions created by a lecturer.
-- Lecturer-selected QR code or permanent six-digit class code.
-- Student QR-code scanning with a phone camera or manual code entry.
+- Lecturer-selected QR code or six-digit-code mode. The credential is generated once per session; it does not rotate.
+- Student QR-code scanning with a phone camera or six-digit code entry.
+- Passkey registration and verification for attendance check-in.
 - Server-side geofence verification with a strict 3-metre radius.
 - GPS audit fields on each attendance record.
 - Duplicate scan prevention: one attendance record per student per session.
-- Attendance history, percentage, and score out of 10.
+- Attendance percentage and mark out of 10, based on completed sessions and rounded to one decimal place.
 - Lecturer attendance table and CSV export for spreadsheet use.
 
 ## How Attendance Works
@@ -37,19 +38,18 @@ The attendance score can contribute up to **10 marks** to a student's course gra
 2. Students enrol in the course.
 3. At the beginning of class, the lecturer starts an attendance session and chooses QR or six-digit code mode. The lecturer's current location is saved with a 3-metre radius.
 4. The server creates one class credential. It remains valid until the lecturer ends the class.
-6. The student opens the scanner page. The browser asks for location permission.
-7. If the student is inside the permitted area, the scanner becomes available. Otherwise, the app shows an out-of-range message.
-8. The student enters the code or scans the QR code.
-9. The backend confirms that the student is logged in, enrolled, within 3 metres, has accurate GPS, uses the correct class credential, and has not attended already.
-10. If every check succeeds, the application saves a `present` attendance record.
+5. The lecturer ends the session. The credential stops working and the session counts toward attendance marks.
+6. The student opens the dashboard, allows location access, and enters the six-digit code or scans the QR code. The browser requests a passkey assertion.
+7. The backend verifies that the student is logged in, enrolled, within 3 metres, has location accuracy of 3 metres or better, uses the correct class credential and passkey, and has not attended already.
+8. If every check succeeds, the application saves a `present` attendance record.
 
-> The QR code or six-digit code should be displayed by the lecturer. The student's attendance submission is disabled outside the permitted class location.
+> The QR code or six-digit code should be displayed by the lecturer. Location checks are performed by the server during check-in; the scanner is not pre-disabled based on distance.
 
 ## Location Verification
 
 Location validation is a geofence: a circular area around the class location.
 
-- Lecturer location: latitude and longitude captured when attendance begins, or entered for a known classroom.
+- Lecturer location: latitude and longitude captured from the browser when attendance begins.
 - Allowed radius: currently fixed at 3 metres; this may need to increase after physical-device testing because indoor GPS can be inaccurate.
 - Student location: captured from the browser immediately before scanning/submitting attendance.
 - Minimum accuracy: reject a location whose accuracy is worse than 3 metres.
@@ -61,22 +61,30 @@ GPS can be inaccurate indoors and can be faked by determined users. Physical-dev
 
 ## Attendance Mark Calculation
 
-For a course where attendance has a maximum of 10 marks:
+The student dashboard, lecturer report, and CSV export calculate the mark using completed (ended) sessions:
 
 ```text
-attendanceMark = (classesAttended / totalCompletedSessions) × 10
+markOutOfTen = round((classesAttended / totalCompletedSessions) × 10, 1)
 ```
 
 Example:
 
 ```text
 8 attended sessions / 10 completed sessions = 80%
-80% × 10 = 8/10 attendance marks
+80% × 10 = 8.0/10
 ```
+
+Active sessions are not included until ended. If there are no completed sessions, no mark is available yet (shown as `—` in the dashboard and left blank in CSV). Percentages are displayed as whole numbers; marks are rounded to one decimal place. Whether the mark contributes to a final grade is determined by the institution.
 
 ## Technology Stack
 
 ### Frontend
+
+- React with Vite
+- React Router
+- Axios
+- `html5-qrcode` for camera scanning
+- `qrcode` for displaying lecturer QR codes
 
 Each attendance record stores `studentLatitude`, `studentLongitude`, `locationAccuracy`, `distanceMeters`, `accessMethod`, `authenticationMethod`, `deviceId`, and `recordedAt` for auditing.
 
@@ -99,7 +107,7 @@ The laptop PIN is not stored by this application. It unlocks Windows Hello, whic
 - Axios or Fetch API
 - `html5-qrcode` for camera scanning
 - `qrcode` for displaying lecturer QR codes
-- CSS, Tailwind CSS, or a component library such as Material UI
+- CSS
 
 ### Backend
 
@@ -164,10 +172,18 @@ scanner/
 {
   name: String,
   email: String,
+  phoneNumber: String,
   password: String, // hashed
-  role: 'student' | 'lecturer',
-  matricNumber: String, // required for students
-  createdAt: Date
+  role: 'student' | 'lecturer' | 'admin',
+  matricNumber: String, // optional, unique
+  staffId: String, // optional, unique
+  passkeys: [Object],
+  emailVerified: Boolean,
+  faculty: ObjectId, // Faculty
+  department: ObjectId, // Department
+  registeredCourses: [ObjectId], // Course
+  createdAt: Date,
+  updatedAt: Date
 }
 ```
 
@@ -175,11 +191,14 @@ scanner/
 
 ```js
 {
-  courseCode: String,
-  courseTitle: String,
+  code: String,
+  title: String,
+  units: Number,
+  department: ObjectId, // Department
   lecturer: ObjectId, // User
-  students: [ObjectId], // Users
-  createdAt: Date
+  active: Boolean,
+  createdAt: Date,
+  updatedAt: Date
 }
 ```
 
@@ -189,11 +208,11 @@ scanner/
 {
   course: ObjectId,
   lecturer: ObjectId,
-  active: Boolean,
-  startedAt: Date,
-  endedAt: Date,
   accessMode: 'code' | 'qr',
-  accessCode: String,
+  accessCode: String, // excluded from normal queries
+  active: Boolean,
+  startsAt: Date,
+  endsAt: Date,
   location: {
     latitude: Number,
     longitude: Number,
@@ -209,24 +228,29 @@ scanner/
   student: ObjectId,
   course: ObjectId,
   session: ObjectId,
-  status: 'present',
+  status: 'present' | 'absent',
   recordedAt: Date,
   studentLatitude: Number,
   studentLongitude: Number,
   locationAccuracy: Number,
   distanceMeters: Number,
-  accessMethod: 'code' | 'qr'
+  accessMethod: 'code' | 'qr',
+  authenticationMethod: 'passkey',
+  deviceId: String
 }
 ```
 
-Create a unique MongoDB index on `student` and `session` so a student cannot be marked present twice in the same session.
+The application defines a unique MongoDB index on `{ session, student }`, so a student cannot be marked present twice in the same session.
 
 ## API Endpoints
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | POST | `/api/auth/signup` | Create student or lecturer account. |
-| POST | `/api/auth/login` | Authenticate and return JWT. |
+| POST | `/api/auth/login` | Authenticate and set an HttpOnly JWT cookie. |
+| POST | `/api/auth/password-reset/request` | Email a time-limited password reset link when the account exists. |
+| POST | `/api/auth/password-reset/confirm` | Set a new password using a valid, unused reset token. |
+| GET | `/api/auth/verify-email` | Verify an account email address. |
 | GET | `/api/courses/catalog` | Get faculties, departments, and available courses. |
 | PUT | `/api/courses/lecturer-faculty` | Set a lecturer's faculty. |
 | POST | `/api/courses/manage` | Lecturer creates a course. |
@@ -237,13 +261,15 @@ Create a unique MongoDB index on `student` and `session` so a student cannot be 
 | POST | `/api/attendance/sessions` | Lecturer starts a session and sets the geofence. |
 | POST | `/api/attendance/sessions/:sessionId/check-in` | Validate code or QR, enrolment, location, and save attendance. |
 | PATCH | `/api/attendance/sessions/:sessionId/close` | Lecturer ends a session. |
-| GET | `/api/attendance/progress` | Student views attendance percentage and progress. |
-| GET | `/api/attendance/courses/:courseId/report` | Lecturer views course attendance. |
-| GET | `/api/attendance/courses/:courseId/export` | Download course attendance CSV. |
+| GET | `/api/attendance/progress` | Student views attendance percentage, mark out of 10, and completed-session progress. |
+| GET | `/api/attendance/courses/:courseId/report` | Lecturer views course attendance, percentage, and mark out of 10. |
+| GET | `/api/attendance/courses/:courseId/export` | Download course attendance CSV, including percentage, mark, and check-in audit details. |
+
+Passkey routes are also available under `/api/auth/passkey/` for authenticated passkey registration and attendance authentication options.
 
 ## Attendance Credential Rules
 
-The lecturer chooses QR or a six-digit code when starting a class. The credential is generated once and remains valid only while that session is active. Ending the class invalidates it. The final decision remains on the server.
+The lecturer chooses QR or six-digit-code mode when starting a class. A six-digit credential is generated once per session and is not rotated or automatically expired; it remains valid until the lecturer ends that session. Check-in validation, including credential, passkey, enrollment, location, and duplicate checks, runs on the server.
 
 ## Environment Variables
 
@@ -288,9 +314,6 @@ Do not commit `.env` files or real secret values to Git.
 ```bash
 # Frontend
 cd frontend
-WEBAUTHN_RP_NAME=QR Attendance
-WEBAUTHN_RP_ID=localhost
-WEBAUTHN_ORIGIN=http://localhost:5173
 npm install
 
 # Server
@@ -298,12 +321,7 @@ cd ../server
 npm install
 ```
 
-Install frontend packages as required:
-
-```bash
-cd frontend
-npm install axios react-router-dom html5-qrcode qrcode
-```
+Create `server/.env` from `server/.env.example` and set the MongoDB, JWT, and email values before starting the API. For local passkeys, keep the WebAuthn RP ID and origin aligned with the frontend origin in that file.
 
 ### Run the application
 
@@ -341,17 +359,19 @@ Test on at least two phones with location services enabled: one at the lecturer 
 ## Testing Checklist
 
 - Student and lecturer cannot access each other's protected pages.
+- Password reset links expire after one hour and cannot be reused.
 - Only lecturers can create a course or start attendance.
 - Only enrolled students can mark attendance.
 - A wrong code or QR payload is rejected.
 - A student outside the permitted radius cannot scan or submit attendance.
 - A student cannot scan twice during one session.
-- A completed session counts correctly in the attendance percentage.
-- CSV export opens correctly in spreadsheet software and includes audit fields.
+- Only ended sessions count toward attendance percentages and marks.
+- Marks are rounded to one decimal place and are absent until a course has a completed session.
+- CSV export opens correctly in spreadsheet software and includes audit fields and marks out of 10.
 
 ## Future Improvements
 
-- Email verification and password reset.
+- Email verification resend flow.
 - Lecturer-defined course schedules.
 - Notifications when a session begins.
 - QR display on a projector-friendly full-screen page.
@@ -362,4 +382,4 @@ Test on at least two phones with location services enabled: one at the lecturer 
 
 ## Project Status
 
-Core registration, lecturer course management, code/QR attendance, geofence validation, attendance progress, spreadsheet reporting, and CSV export are implemented. Facial biometric verification, physical-device testing, and production HTTPS deployment remain before real-world launch.
+Core registration, lecturer course management, code/QR attendance, passkey checks, geofence validation, attendance percentage and mark calculation, spreadsheet reporting, and CSV export are implemented. Facial biometric verification, physical-device testing, and production HTTPS deployment remain before real-world launch. Automated tests currently cover the attendance mark calculation; the full lecturer-to-student flow still needs end-to-end testing.
