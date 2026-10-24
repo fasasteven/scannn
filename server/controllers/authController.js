@@ -166,14 +166,11 @@ export async function signup(req, res, next) {
     }
 
     let accessCodeDelivered = false;
-    const accessCodeEmailConfigured = emailConfigured();
     if (lecturerAccessCode) {
       try {
         accessCodeDelivered = await sendLecturerAccessCodeEmail({ name, email: normalizedEmail, accessCode: lecturerAccessCode });
       } catch (mailError) {
         console.error("Lecturer access-code email failed:", mailError.message);
-        await User.deleteOne({ _id: user._id });
-        throw mailError;
       }
     }
 
@@ -182,7 +179,7 @@ export async function signup(req, res, next) {
       : "Account created. Check your email to verify your account before signing in.";
 
     res.status(201).json({
-      lecturerAccessCode: accessCodeDelivered || accessCodeEmailConfigured ? undefined : lecturerAccessCode,
+      lecturerAccessCode: accessCodeDelivered ? undefined : lecturerAccessCode,
       accessCodeDelivered,
       message: verificationMessage,
     });

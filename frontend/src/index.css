@@ -157,9 +157,41 @@ td .tag { margin: 0 5px 5px 0; }
 .access-code { color: #17352b; font-size: 34px; font-weight: 800; letter-spacing: 8px; margin-top: 10px; }
 .attendance-qr { display: block; width: 180px; height: 180px; margin-top: 12px; }
 .attendance-entry { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.attendance-entry input { width: 125px; border: 1px solid #c8d2cc; border-radius: 5px; padding: 10px; }
-.qr-reader { width: min(280px, 100%); margin-top: 12px; }
-@media (max-width: 640px) { .session-card { flex-direction: column; align-items: flex-start; } }
-.cell-present { color: #27735a; background: #edf8f0; }
-.cell-absent { color: #9d4949; background: #fff1f1; }
-@media (max-width: 640px) { .page { width: min(100% - 24px, 560px); padding: 24px 0; } .page-header, .section-heading, .course-row { flex-direction: column; } .panel { padding: 20px; } .inline-form { flex-direction: column; } .inline-form button { width: 100%; } }
+.attendance-entry input { 
+  width: 125px; border: 1px solid #c8d2cc; border-radius: 5px; padding: 10px; 
+}
+.qr-reader { 
+  width: min(280px, 100%); 
+  margin-top: 12px; 
+}
+@media (max-width: 640px) { 
+  .session-card { 
+    flex-direction: column; 
+    align-items: flex-start; 
+  } 
+}
+.cell-present { 
+  color: #27735a; 
+  background: #edf8f0; 
+}
+.cell-absent { 
+  color: #9d4949; 
+  background: #fff1f1; 
+}
+@media (max-width: 640px) {
+  .page { 
+    width: min(100% - 24px, 560px);
+     padding: 24px 0; 
+    } 
+    .page-header, .section-heading, .course-row { flex-direction: column; 
+    } 
+    .panel { 
+      padding: 20px;
+    } 
+    .inline-form { 
+      flex-direction: column; 
+    } 
+    .inline-form button { 
+      width: 100%; 
+    } 
+  }
