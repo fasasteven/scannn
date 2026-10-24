@@ -295,6 +295,14 @@ MAIL_FROM=QR Attendance <no-reply@example.com>
 
 When the frontend and API are deployed separately, set `VITE_API_URL` to the public API base URL, for example `https://api.example.com/api`. During local development, Vite proxies `/api` to `http://localhost:5000`.
 
+For a frontend hosted as a Render Static Site, configure a rewrite in the Render Dashboard under **Redirects/Rewrites**:
+
+| Source | Destination | Action |
+| --- | --- | --- |
+| `/*` | `/index.html` | Rewrite |
+
+This serves the React app for direct visits and refreshes on routes such as `/lecturer` and `/verify-email`. A rewrite is required; a redirect changes the browser URL. Render applies this setting in the dashboard, so it must be configured on the deployed static site and redeployed if needed.
+
 SMTP settings are required for email verification and lecturer access codes. For Gmail, use an App Password rather than your normal account password. Authentication uses an HttpOnly cookie, so the browser does not store the JWT in JavaScript-accessible storage. Set `COOKIE_SAME_SITE=strict` when the frontend and API share a site; use `lax` for local development.
 
 Before deployment, rotate any credentials that were ever placed in a local or committed `.env` file. Generate a new JWT secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`, rotate the MongoDB database user password in Atlas, and update the deployment environment variables. Do not commit the resulting `.env` file.

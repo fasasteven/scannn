@@ -1,29 +1,14 @@
-@import url('https://fonts.googleapis.com/css?family=Poppins:400,500,600,700&display=swap');
+@import url("https://fonts.googleapis.com/css?family=Poppins:400,500,600,700&display=swap");
 
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Poppins', sans-serif;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  display: grid;
-  place-items: center;
-  background: #dde1e7;
-  text-align: center;
+  font-family: "Poppins", sans-serif;
 }
 
 .login-page,
 .signup-page {
   width: 100%;
   min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -31,83 +16,92 @@ body {
 
 .login-page .content,
 .signup-page .content {
-  width: min(330px, 100%);
-  padding: 40px 30px;
-  background: #dde1e7;
-  border-radius: 10px;
-  box-shadow: -3px -3px 7px #ffffff73, 2px 2px 5px rgba(94, 104, 121, 0.288);
+  width: min(100%, 380px);
+  padding: 36px 30px;
+  background: #f4f7f5;
+  border: 1px solid #e0e8e2;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(25, 55, 41, 0.1);
 }
 
 .signup-page .content {
-  width: min(420px, 100%);
+  width: min(100%, 440px);
 }
 
 .login-page .content .text,
 .signup-page .content .text {
-  font-size: 33px;
+  margin-bottom: 28px;
+  color: #17352b;
+  font-size: clamp(26px, 6vw, 33px);
   font-weight: 600;
-  margin-bottom: 35px;
-  color: #595959;
+  line-height: 1.2;
 }
 
+.login-page form,
 .signup-form {
   display: grid;
-  gap: 20px;
+  gap: 18px;
 }
 
 .field {
-  height: 50px;
-  width: 100%;
-  display: flex;
   position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
 }
 
 .field input,
 .field select {
-  height: 100%;
   width: 100%;
-  padding-left: 45px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 14px 0 46px;
+  border: 1px solid #c8d2cc;
+  border-radius: 8px;
   outline: none;
-  border: none;
-  font-size: 18px;
-  background: #dde1e7;
-  color: #595959;
-  border-radius: 25px;
-  box-shadow: inset 2px 2px 5px #babecc, inset -5px -5px 10px #ffffff73;
-}
-
-.field select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  cursor: pointer;
+  background: #fff;
+  color: #17352b;
+  font-size: 16px;
 }
 
 .field input:focus,
 .field select:focus {
-  box-shadow: inset 1px 1px 2px #babecc, inset -1px -1px 2px #ffffff73;
+  border-color: #27735a;
+  box-shadow: 0 0 0 3px rgba(39, 115, 90, 0.15);
+}
+
+.field select {
+  appearance: auto;
+  cursor: pointer;
 }
 
 .field span {
   position: absolute;
-  color: #595959;
-  width: 50px;
-  line-height: 50px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   z-index: 1;
+  display: grid;
+  width: 46px;
+  height: 100%;
+  place-items: center;
+  color: #315044;
 }
 
 .field label {
   position: absolute;
   top: 50%;
+  left: 46px;
   transform: translateY(-50%);
-  left: 45px;
+  overflow: hidden;
+  max-width: calc(100% - 60px);
+  color: #728179;
+  font-size: 14px;
+  font-weight: 400;
   pointer-events: none;
-  color: #666666;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.field input:focus ~ label,
 .field input:valid ~ label,
 .field select:valid ~ label {
   opacity: 0;
@@ -115,81 +109,95 @@ body {
 
 .login-message,
 .signup-message {
-  margin-bottom: 18px;
-  color: #d32f2f;
+  margin-bottom: 16px;
+  color: #b42318;
   font-size: 14px;
   text-align: left;
 }
 
 .signup-success {
-  text-align: left;
-  color: #595959;
+  display: grid;
+  gap: 12px;
+  color: #315044;
   font-size: 15px;
   line-height: 1.7;
-  display: grid;
-  gap: 10px;
+  text-align: left;
 }
 
 .issued-access-code {
+  padding: 12px 14px;
+  border: 1px solid #dce5df;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f5e8c;
   font-size: 20px;
   letter-spacing: 2px;
-  color: #1f5e8c;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.18);
-  box-shadow: inset 1px 1px 2px #babecc, inset -1px -1px 2px #ffffff73;
 }
 
 .forgot-pass {
+  margin: 0 0 2px 4px;
   text-align: left;
-  margin: 10px 0 10px 5px;
 }
 
 .forgot-pass a,
-.sign-up a {
-  font-size: 16px;
-  color: #3498db;
+.sign-up a,
+.signup-success a {
+  color: #1d5943;
   text-decoration: none;
 }
 
 .forgot-pass a:hover,
-.sign-up a:hover {
+.sign-up a:hover,
+.signup-success a:hover {
   text-decoration: underline;
 }
 
-button {
-  margin: 15px 0;
+.login-page button,
+.signup-page button {
   width: 100%;
-  height: 50px;
-  font-size: 18px;
-  line-height: 50px;
+  min-height: 48px;
+  margin: 0;
+  border: 1px solid #1d5943;
+  border-radius: 8px;
+  background: #1d5943;
+  color: #fff;
+  font-size: 16px;
   font-weight: 600;
-  background: #dde1e7;
-  border-radius: 25px;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  color: #595959;
-  box-shadow: 2px 2px 5px #babecc, -5px -5px 10px #ffffff73;
+  line-height: 1.4;
+  box-shadow: none;
 }
 
-button:disabled {
+.login-page button:hover:not(:disabled),
+.signup-page button:hover:not(:disabled) {
+  background: #174a37;
+}
+
+.login-page button:focus-visible,
+.signup-page button:focus-visible {
+  outline: 3px solid rgba(39, 115, 90, 0.3);
+  outline-offset: 2px;
+}
+
+.login-page button:disabled,
+.signup-page button:disabled {
   cursor: not-allowed;
-  opacity: 0.8;
-}
-
-button:focus {
-  color: #3498db;
-  box-shadow: inset 2px 2px 5px #babecc, inset -5px -5px 10px #ffffff73;
+  opacity: 0.65;
 }
 
 .sign-up {
-  margin: 10px 0;
-  color: #595959;
-  font-size: 16px;
+  margin: 20px 0 0;
+  color: #52665c;
+  font-size: 14px;
 }
 
-.sign-up a {
-  color: #3498db;
-  text-decoration: none;
+@media (max-width: 480px) {
+  .login-page,
+  .signup-page {
+    padding: 16px;
+  }
+
+  .login-page .content,
+  .signup-page .content {
+    padding: 28px 20px;
+  }
 }
