@@ -134,27 +134,6 @@ export async function createCourse(req, res, next) {
 	}
 }
 
-export async function registerCatalogCourse(req, res, next) {
-	try {
-		if (!req.user.faculty) return res.status(400).json({ message: "Select your faculty before registering a course." });
-		const availableCourse = await Course.findOne({
-			_id: req.body.courseId,
-			active: true,
-			$or: [{ lecturer: { $exists: false } }, { lecturer: null }],
-		}).populate("department", "name");
-		if (!availableCourse) return res.status(409).json({ message: "That course is no longer available. Refresh and choose another course." });
-		const department = await Department.findOne({ _id: availableCourse.department._id, faculty: req.user.faculty, active: true });
-		if (!department) return res.status(400).json({ message: "Choose a listed course from your faculty." });
-		const registration = await Course.updateOne(
-			{ _id: availableCourse._id, active: true, $or: [{ lecturer: { $exists: false } }, { lecturer: null }] },
-			{ $set: { lecturer: req.user._id } },
-		);
-		if (!registration.modifiedCount) return res.status(409).json({ message: "That course is no longer available. Refresh and choose another course." });
-		const course = await Course.findById(availableCourse._id).populate("department", "name");
-		res.status(200).json({ course });
-	} catch (error) { next(error); }
-}
-
 export async function getLecturerCourses(req, res, next) {
 	try {
 		const courses = await Course.find({ lecturer: req.user._id, active: true }).populate("department", "name").lean();
