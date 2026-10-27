@@ -90,6 +90,10 @@ function ensureCatalog() {
 	return catalogSeedPromise;
 }
 
+export function initializeCatalog() {
+	return ensureCatalog();
+}
+
 export async function getCatalog(req, res, next) {
 	try {
 		await ensureCatalog();

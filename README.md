@@ -33,7 +33,7 @@ The attendance mark is calculated out of **10** from completed sessions. It is a
 - Lecturer attendance table and CSV export for spreadsheet use.
 - A starter faculty, department, and course catalog for local testing.
 
-The starter catalog is added idempotently when an authenticated user first loads the course catalog. Lecturers can select a faculty and department, then either add a course or register an available listed course; registered courses become available for student enrolment. These sample entries are intended for testing and can be supplemented with institution-specific data.
+The starter catalog is added idempotently when the API starts and is checked again when a user loads the course catalog. It includes five sample faculties, departments under each, and courses under each department. Lecturers can select a faculty and department, then either add a course or register an available listed course; registered courses become available for student enrolment. These sample entries are intended for testing and can be supplemented with institution-specific data.
 
 ## How Attendance Works
 

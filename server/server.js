@@ -6,6 +6,7 @@ import { connectDatabase } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
+import { initializeCatalog } from "./controllers/courseController.js";
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173", credentials: true }));
@@ -17,7 +18,10 @@ app.use("/api/courses", courseRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use((error, req, res, next) => res.status(error.statusCode || 500).json({ message: error.message || "Server error" }));
 
-connectDatabase().then(() => app.listen(process.env.PORT || 5000, () => console.log("API running on port 5000"))).catch((error) => {
+connectDatabase().then(async () => {
+  await initializeCatalog();
+  app.listen(process.env.PORT || 5000, () => console.log("API running on port 5000"));
+}).catch((error) => {
   console.error(error.message);
   process.exit(1);
 });
