@@ -5,25 +5,89 @@ import User from "../models/User.js";
 import AttendanceRecord from "../models/AttendanceRecord.js";
 
 const defaultCatalog = [
-	["Faculty of Science", ["Computer Science", "Biochemistry"]],
-	["Faculty of Engineering", ["Electrical Engineering", "Civil Engineering"]],
-	["Faculty of Arts", ["English", "History"]],
-	["Faculty of Social Sciences", ["Economics", "Mass Communication"]],
-	["Faculty of Management Sciences", ["Accounting", "Business Administration"]],
+	{
+		name: "Faculty of Science",
+		departments: [
+			{ name: "Computer Science", courses: [["CSC101", "Introduction to Computing"], ["CSC201", "Programming Fundamentals"], ["CSC301", "Database Systems"]] },
+			{ name: "Biochemistry", courses: [["BCH101", "General Biochemistry"], ["BCH201", "Cell Biology"]] },
+		],
+	},
+	{
+		name: "Faculty of Engineering",
+		departments: [
+			{ name: "Electrical Engineering", courses: [["EEE101", "Circuit Analysis"], ["EEE201", "Electrical Machines"]] },
+			{ name: "Civil Engineering", courses: [["CVE101", "Engineering Drawing"], ["CVE201", "Structural Analysis"]] },
+		],
+	},
+	{
+		name: "Faculty of Arts",
+		departments: [
+			{ name: "English", courses: [["ENG101", "Introduction to Literature"], ["ENG201", "Academic Writing"]] },
+			{ name: "History", courses: [["HIS101", "Nigerian History"], ["HIS201", "African History"]] },
+		],
+	},
+	{
+		name: "Faculty of Social Sciences",
+		departments: [
+			{ name: "Economics", courses: [["ECO101", "Introduction to Economics"], ["ECO201", "Microeconomics"]] },
+			{ name: "Mass Communication", courses: [["MCM101", "Introduction to Mass Communication"], ["MCM201", "Media Writing"]] },
+		],
+	},
+	{
+		name: "Faculty of Management Sciences",
+		departments: [
+			{ name: "Accounting", courses: [["ACC101", "Financial Accounting"], ["ACC201", "Cost Accounting"]] },
+			{ name: "Business Administration", courses: [["BUS101", "Business Management"], ["BUS201", "Marketing Principles"]] },
+		],
+	},
 ];
 
-async function ensureCatalog() {
-	if (await Faculty.exists()) return;
-	for (const [facultyName, departmentNames] of defaultCatalog) {
-		const faculty = await Faculty.create({ name: facultyName });
-		const departments = await Department.insertMany(departmentNames.map((name) => ({ name, faculty: faculty._id })));
-		faculty.departments = departments.map((department) => department._id);
-		await faculty.save();
-		await Course.insertMany(departments.flatMap((department, index) => [
-			{ code: `${facultyName.slice(8, 11).toUpperCase()}${index + 101}`, title: `${department.name} Fundamentals`, department: department._id },
-			{ code: `${facultyName.slice(8, 11).toUpperCase()}${index + 201}`, title: `${department.name} Research Methods`, department: department._id },
-		]));
+let catalogSeedPromise;
+
+async function seedDefaultCatalog() {
+	const faculties = await Promise.all(defaultCatalog.map(({ name }) => Faculty.findOneAndUpdate(
+		{ name },
+		{ $setOnInsert: { name } },
+		{ upsert: true, new: true, setDefaultsOnInsert: true },
+	)));
+	const departmentOps = defaultCatalog.flatMap((facultyData, index) => facultyData.departments.map((department) => ({
+		updateOne: {
+			filter: { faculty: faculties[index]._id, name: department.name },
+			update: { $setOnInsert: { faculty: faculties[index]._id, name: department.name } },
+			upsert: true,
+		},
+	})));
+	await Department.bulkWrite(departmentOps);
+	const departments = await Department.find({ faculty: { $in: faculties.map((faculty) => faculty._id) } }).lean();
+	const departmentByKey = new Map(departments.map((department) => [`${department.faculty}:${department.name}`, department]));
+	const facultyOps = defaultCatalog.map((facultyData, index) => ({
+		updateOne: {
+			filter: { _id: faculties[index]._id },
+			update: { $addToSet: { departments: { $each: facultyData.departments.map((department) => departmentByKey.get(`${faculties[index]._id}:${department.name}`)._id) } } },
+		},
+	}));
+	await Faculty.bulkWrite(facultyOps);
+	const courseOps = defaultCatalog.flatMap((facultyData, index) => facultyData.departments.flatMap((department) => {
+		const departmentId = departmentByKey.get(`${faculties[index]._id}:${department.name}`)._id;
+		return department.courses.map(([code, title]) => ({
+			updateOne: {
+				filter: { code, department: departmentId },
+				update: { $setOnInsert: { code, title, department: departmentId } },
+				upsert: true,
+			},
+		}));
+	}));
+	await Course.bulkWrite(courseOps);
+}
+
+function ensureCatalog() {
+	if (!catalogSeedPromise) {
+		catalogSeedPromise = seedDefaultCatalog().catch((error) => {
+			catalogSeedPromise = undefined;
+			throw error;
+		});
 	}
+	return catalogSeedPromise;
 }
 
 export async function getCatalog(req, res, next) {
@@ -64,6 +128,27 @@ export async function createCourse(req, res, next) {
 		if (error.code === 11000) return res.status(409).json({ message: "That course code already exists in this department." });
 		next(error);
 	}
+}
+
+export async function registerCatalogCourse(req, res, next) {
+	try {
+		if (!req.user.faculty) return res.status(400).json({ message: "Select your faculty before registering a course." });
+		const availableCourse = await Course.findOne({
+			_id: req.body.courseId,
+			active: true,
+			$or: [{ lecturer: { $exists: false } }, { lecturer: null }],
+		}).populate("department", "name");
+		if (!availableCourse) return res.status(409).json({ message: "That course is no longer available. Refresh and choose another course." });
+		const department = await Department.findOne({ _id: availableCourse.department._id, faculty: req.user.faculty, active: true });
+		if (!department) return res.status(400).json({ message: "Choose a listed course from your faculty." });
+		const registration = await Course.updateOne(
+			{ _id: availableCourse._id, active: true, $or: [{ lecturer: { $exists: false } }, { lecturer: null }] },
+			{ $set: { lecturer: req.user._id } },
+		);
+		if (!registration.modifiedCount) return res.status(409).json({ message: "That course is no longer available. Refresh and choose another course." });
+		const course = await Course.findById(availableCourse._id).populate("department", "name");
+		res.status(200).json({ course });
+	} catch (error) { next(error); }
 }
 
 export async function getLecturerCourses(req, res, next) {

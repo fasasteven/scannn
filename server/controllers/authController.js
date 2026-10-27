@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomInt } from "crypto";
 import User from "../models/User.js";
 import { generateToken } from "../utils/generateToken.js";
-import { emailConfigured, sendLecturerAccessCodeEmail, sendPasswordResetEmail, sendVerificationEmail } from "../utils/mailer.js";
+import { emailConfigured, sendPasswordResetEmail, sendVerificationEmail } from "../utils/mailer.js";
 import { clearAuthCookie, setAuthCookie } from "../utils/authCookie.js";
 
 function publicUser(user) {
@@ -158,21 +158,14 @@ export async function signup(req, res, next) {
 
     if (!canBypassVerification) {
       try {
-        await sendVerificationEmail({ name, email: normalizedEmail, token: verificationToken });
+        await sendVerificationEmail({ name, email: normalizedEmail, token: verificationToken, accessCode: lecturerAccessCode });
       } catch (mailError) {
         await User.deleteOne({ _id: user._id });
         throw mailError;
       }
     }
 
-    let accessCodeDelivered = false;
-    if (lecturerAccessCode) {
-      try {
-        accessCodeDelivered = await sendLecturerAccessCodeEmail({ name, email: normalizedEmail, accessCode: lecturerAccessCode });
-      } catch (mailError) {
-        console.error("Lecturer access-code email failed:", mailError.message);
-      }
-    }
+    const accessCodeDelivered = Boolean(lecturerAccessCode && !canBypassVerification);
 
     const verificationMessage = canBypassVerification
       ? "Account created. Email verification was skipped for this local setup. You can sign in immediately."

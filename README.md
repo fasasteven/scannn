@@ -31,6 +31,9 @@ The attendance mark is calculated out of **10** from completed sessions. It is a
 - Duplicate scan prevention: one attendance record per student per session.
 - Attendance percentage and mark out of 10, based on completed sessions and rounded to one decimal place.
 - Lecturer attendance table and CSV export for spreadsheet use.
+- A starter faculty, department, and course catalog for local testing.
+
+The starter catalog is added idempotently when an authenticated user first loads the course catalog. Lecturers can select a faculty and department, then either add a course or register an available listed course; registered courses become available for student enrolment. These sample entries are intended for testing and can be supplemented with institution-specific data.
 
 ## How Attendance Works
 
@@ -254,6 +257,7 @@ The application defines a unique MongoDB index on `{ session, student }`, so a s
 | GET | `/api/courses/catalog` | Get faculties, departments, and available courses. |
 | PUT | `/api/courses/lecturer-faculty` | Set a lecturer's faculty. |
 | POST | `/api/courses/manage` | Lecturer creates a course. |
+| POST | `/api/courses/manage/register` | Lecturer registers an available listed course. |
 | GET | `/api/courses/manage` | Lecturer lists their courses. |
 | GET | `/api/courses/registration` | Student gets their registration. |
 | PUT | `/api/courses/registration` | Student saves faculty, department, and courses. |
@@ -303,7 +307,7 @@ For a frontend hosted as a Render Static Site, configure a rewrite in the Render
 
 This serves the React app for direct visits and refreshes on routes such as `/lecturer` and `/verify-email`. A rewrite is required; a redirect changes the browser URL. Render applies this setting in the dashboard, so it must be configured on the deployed static site and redeployed if needed.
 
-SMTP settings are required for email verification and lecturer access codes. For Gmail, use an App Password rather than your normal account password. Authentication uses an HttpOnly cookie, so the browser does not store the JWT in JavaScript-accessible storage. Set `COOKIE_SAME_SITE=strict` when the frontend and API share a site; use `lax` for local development.
+SMTP settings are required for email verification and lecturer access codes. A lecturer receives the verification link and access code in one message. Signup waits for that email to send, with SMTP connection, greeting, and socket timeouts to avoid waiting indefinitely. For Gmail, use an App Password rather than your normal account password. Authentication uses an HttpOnly cookie, so the browser does not store the JWT in JavaScript-accessible storage. Set `COOKIE_SAME_SITE=strict` when the frontend and API share a site; use `lax` for local development.
 
 Before deployment, rotate any credentials that were ever placed in a local or committed `.env` file. Generate a new JWT secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`, rotate the MongoDB database user password in Atlas, and update the deployment environment variables. Do not commit the resulting `.env` file.
 
