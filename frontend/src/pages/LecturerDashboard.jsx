@@ -19,15 +19,38 @@ export default function LecturerDashboard() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    Promise.all([api.get("/courses/catalog"), api.get("/courses/manage"), api.get("/attendance/sessions")])
-      .then(async ([catalogResponse, coursesResponse, sessionsResponse]) => {
-        setCatalog(catalogResponse.data);
-        setMyCourses(coursesResponse.data);
-        setActiveSessions(sessionsResponse.data);
-        const qrEntries = await Promise.all(sessionsResponse.data.filter((session) => session.accessMode === "qr").map(async (session) => [session._id, await QRCode.toDataURL(JSON.stringify({ sessionId: session._id, accessCode: session.accessCode }))]));
-        setQrImages(Object.fromEntries(qrEntries));
-      })
-      .catch((error) => setMessage(error.response?.data?.message || "Unable to load lecturer data."));
+    let active = true;
+    async function loadLecturerData() {
+      const results = await Promise.allSettled([
+        api.get("/courses/catalog"),
+        api.get("/courses/manage"),
+        api.get("/attendance/sessions"),
+      ]);
+      const errors = [];
+      const [catalogResult, coursesResult, sessionsResult] = results;
+
+      if (catalogResult.status === "fulfilled") setCatalog(catalogResult.value.data);
+      else errors.push(`Faculty catalog: ${catalogResult.reason.response?.data?.message || "unable to load."}`);
+
+      if (coursesResult.status === "fulfilled") setMyCourses(coursesResult.value.data);
+      else errors.push(`Your courses: ${coursesResult.reason.response?.data?.message || "unable to load."}`);
+
+      if (sessionsResult.status === "fulfilled") {
+        const sessions = sessionsResult.value.data;
+        setActiveSessions(sessions);
+        try {
+          const qrEntries = await Promise.all(sessions.filter((session) => session.accessMode === "qr").map(async (session) => [session._id, await QRCode.toDataURL(JSON.stringify({ sessionId: session._id, accessCode: session.accessCode }))]));
+          if (active) setQrImages(Object.fromEntries(qrEntries));
+        } catch {
+          errors.push("QR codes for active classes could not be prepared.");
+        }
+      } else errors.push(`Active classes: ${sessionsResult.reason.response?.data?.message || "unable to load."}`);
+
+      if (active && errors.length) setMessage(errors.join(" "));
+    }
+
+    loadLecturerData();
+    return () => { active = false; };
   }, []);
 
   const faculty = catalog.find((item) => item._id === facultyId);
