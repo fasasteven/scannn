@@ -65,6 +65,10 @@
   font-size: 16px;
 }
 
+.field input.password-input {
+  padding-right: 48px;
+}
+
 .field input:focus,
 .field select:focus {
   border-color: #27735a;
@@ -84,6 +88,42 @@
   height: 100%;
   place-items: center;
   color: #315044;
+}
+
+.login-page .field .password-toggle,
+.signup-page .field .password-toggle {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 46px;
+  min-height: 100%;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #52665c;
+  box-shadow: none;
+}
+
+.login-page .field .password-toggle:hover:not(:disabled),
+.signup-page .field .password-toggle:hover:not(:disabled) {
+  background: transparent;
+  color: #1d5943;
+}
+
+.login-page .field .password-toggle:focus-visible,
+.signup-page .field .password-toggle:focus-visible {
+  outline: 2px solid #27735a;
+  outline-offset: -4px;
+}
+
+.password-toggle svg {
+  width: 20px;
+  height: 20px;
 }
 
 .field label {

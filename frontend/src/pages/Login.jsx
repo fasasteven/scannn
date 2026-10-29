@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getDeviceId } from "../services/device";
 import api from "../services/Api";
+import PasswordVisibilityToggle from "../components/PasswordVisibilityToggle";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [lecturerAccessCode, setLecturerAccessCode] = useState("");
   const [message, setMessage] = useState(location.state?.logoutMessage || "");
   const [loading, setLoading] = useState(false);
@@ -66,12 +68,17 @@ export default function Login() {
           <div className="field">
             <span aria-hidden="true">🔒</span>
             <input
-              type="password"
+              className="password-input"
+              type={passwordVisible ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
             />
             <label>Password</label>
+            <PasswordVisibilityToggle
+              isVisible={passwordVisible}
+              onToggle={() => setPasswordVisible((visible) => !visible)}
+            />
           </div>
 
           <div className="field">

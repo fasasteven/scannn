@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getDeviceId } from "../services/device";
 import api from "../services/Api";
 import { containsEmoji, isValidEmail, isValidPassword } from "../services/validation";
+import PasswordVisibilityToggle from "../components/PasswordVisibilityToggle";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -20,6 +21,8 @@ export default function Signup() {
   });
 
   const [message, setMessage] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [issuedAccessCode, setIssuedAccessCode] = useState("");
   const [accessCodeDelivered, setAccessCodeDelivered] = useState(false);
@@ -193,27 +196,39 @@ export default function Signup() {
               <div className="field">
                 <span aria-hidden="true">🔒</span>
                 <input
+                  className="password-input"
                   name="password"
-                  type="password"
+                  type={passwordVisible ? "text" : "password"}
                   minLength="8"
                   value={formData.password}
                   onChange={handleChange}
                   required
                 />
                 <label>Password</label>
+                <PasswordVisibilityToggle
+                  isVisible={passwordVisible}
+                  onToggle={() => setPasswordVisible((visible) => !visible)}
+                />
               </div>
 
               <div className="field">
                 <span aria-hidden="true">🔐</span>
                 <input
+                  className="password-input"
                   name="confirmPassword"
-                  type="password"
+                  type={confirmPasswordVisible ? "text" : "password"}
                   minLength="8"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
                 />
                 <label>Confirm Password</label>
+                <PasswordVisibilityToggle
+                  isVisible={confirmPasswordVisible}
+                  onToggle={() =>
+                    setConfirmPasswordVisible((visible) => !visible)
+                  }
+                />
               </div>
 
               <button type="submit" disabled={loading}>
