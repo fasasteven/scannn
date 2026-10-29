@@ -4,6 +4,7 @@ import Course from "../models/Course.js";
 import User from "../models/User.js";
 import { calculateDistanceMeters } from "../utils/calculateDistance.js";
 import { calculateMarkOutOfTen } from "../utils/attendanceMark.js";
+import { summarizeAttendance } from "../utils/attendanceSummary.js";
 import { attendanceRadiusMeters, maximumLocationAccuracyMeters } from "../utils/attendanceLocation.js";
 import { verifyPasskey } from "./passkeyController.js";
 import { randomInt } from "crypto";
@@ -97,20 +98,22 @@ export async function getStudentProgress(req, res, next) {
 	try {
 		const courseIds = req.user.registeredCourses || [];
 		const courses = await Course.find({ _id: { $in: courseIds }, active: true }).select("code title units").lean();
-		const sessions = await AttendanceSession.find({ course: { $in: courseIds }, active: false }).sort({ startsAt: 1 }).lean();
+		const sessions = await AttendanceSession.find({ course: { $in: courseIds } }).sort({ startsAt: 1 }).lean();
 		const records = await AttendanceRecord.find({ student: req.user._id, course: { $in: courseIds } }).select("session course status recordedAt").lean();
 		const progress = courses.map((course) => {
 			const courseSessions = sessions.filter((session) => session.course.toString() === course._id.toString());
 			const courseRecords = records.filter((record) => record.course.toString() === course._id.toString());
-			const present = courseRecords.filter((record) => record.status === "present").length;
+			const summary = summarizeAttendance(courseSessions, courseRecords);
 			return {
 				...course,
 				totalSessions: courseSessions.length,
-				present,
-				absent: Math.max(courseSessions.length - present, 0),
-				percentage: courseSessions.length ? Math.round((present / courseSessions.length) * 100) : 0,
-				markOutOfTen: calculateMarkOutOfTen(present, courseSessions.length),
-				sessions: courseSessions.map((session) => ({ id: session._id, date: session.startsAt, status: courseRecords.some((record) => record.session.toString() === session._id.toString() && record.status === "present") ? "present" : "absent" })),
+				completedSessions: courseSessions.filter((session) => !session.active).length,
+				present: summary.present,
+				absent: summary.absent,
+				pending: summary.pending,
+				percentage: summary.percentage,
+				markOutOfTen: calculateMarkOutOfTen(summary.present, courseSessions.length),
+				sessions: summary.attendance.map((entry, index) => ({ id: entry.sessionId, date: courseSessions[index].startsAt, status: entry.status })),
 			};
 		});
 		res.json(progress);
@@ -121,19 +124,20 @@ export async function getLecturerReport(req, res, next) {
 	try {
 		const course = await Course.findOne({ _id: req.params.courseId, lecturer: req.user._id, active: true }).select("code title").lean();
 		if (!course) return res.status(404).json({ message: "Course not found or not owned by you." });
-		const sessions = await AttendanceSession.find({ course: course._id, active: false }).sort({ startsAt: 1 }).select("startsAt endsAt").lean();
+		const sessions = await AttendanceSession.find({ course: course._id }).sort({ startsAt: 1 }).select("startsAt endsAt active").lean();
 		const students = await User.find({ role: "student", registeredCourses: course._id }).select("name matricNumber email").sort({ name: 1 }).lean();
 		const records = await AttendanceRecord.find({ course: course._id, session: { $in: sessions.map((session) => session._id) } }).select("student session status recordedAt").lean();
 		const rows = students.map((student) => {
 			const studentRecords = records.filter((record) => record.student.toString() === student._id.toString());
-			const present = studentRecords.filter((record) => record.status === "present").length;
+			const summary = summarizeAttendance(sessions, studentRecords);
 			return {
 				...student,
-				attendance: sessions.map((session) => ({ sessionId: session._id, status: studentRecords.some((record) => record.session.toString() === session._id.toString() && record.status === "present") ? "present" : "absent" })),
-				present,
-				absent: sessions.length - present,
-				percentage: sessions.length ? Math.round((present / sessions.length) * 100) : 0,
-				markOutOfTen: calculateMarkOutOfTen(present, sessions.length),
+				attendance: summary.attendance,
+				present: summary.present,
+				absent: summary.absent,
+				pending: summary.pending,
+				percentage: summary.percentage,
+				markOutOfTen: calculateMarkOutOfTen(summary.present, sessions.length),
 			};
 		});
 		res.json({ course, sessions, students: rows });

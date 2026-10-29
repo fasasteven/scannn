@@ -8,7 +8,7 @@ The current implementation includes password authentication, email verification,
 
 This project replaces paper attendance sheets with a simple digital system. It allows a lecturer to manage courses, begin an attendance session, and see which students attended. Students can enrol in courses, scan a lecturer's QR code during class, and view their attendance score.
 
-The attendance mark is calculated out of **10** from completed sessions. It is an attendance measure; whether and how it contributes to a course grade is an academic policy decision.
+The attendance mark is calculated out of **10** from active and completed sessions; it is provisional while a class is in progress. It is an attendance measure; whether and how it contributes to a course grade is an academic policy decision.
 
 ## Users and Roles
 
@@ -26,11 +26,11 @@ The attendance mark is calculated out of **10** from completed sessions. It is a
 - Lecturer-selected QR code or six-digit-code mode. The credential is generated once per session; it does not rotate.
 - Student QR-code scanning with a phone camera or six-digit code entry.
 - Passkey registration and verification for attendance check-in.
-- Server-side geofence verification with a strict 5-metre radius.
+- Server-side geofence verification with a strict 20-metre radius.
 - GPS audit fields on each attendance record.
 - Duplicate scan prevention: one attendance record per student per session.
-- Attendance percentage and mark out of 10, based on completed sessions and rounded to one decimal place.
-- Lecturer attendance table and CSV export for spreadsheet use.
+- Live student attendance percentage and mark out of 10, including in-progress sessions and rounded to one decimal place.
+- Lecturer attendance roster that refreshes during class, plus completed-session CSV export.
 - A starter faculty, department, and course catalog for local testing.
 
 The starter catalog is added idempotently when the API starts and is checked again when a user loads the course catalog. It includes five sample faculties, departments under each, and courses under each department. Lecturers can select a faculty and department, then either add a course or register an available listed course; registered courses become available for student enrolment. These sample entries are intended for testing and can be supplemented with institution-specific data.
@@ -39,12 +39,13 @@ The starter catalog is added idempotently when the API starts and is checked aga
 
 1. A lecturer creates a course, for example `CSC301 - Database Systems`.
 2. Students enrol in the course.
-3. At the beginning of class, the lecturer starts an attendance session and chooses QR or six-digit code mode. The lecturer's current location is saved with a 5-metre radius.
+3. At the beginning of class, the lecturer starts an attendance session and chooses QR or six-digit code mode. The lecturer's current location is saved with a 20-metre radius.
 4. The server creates one class credential. It remains valid until the lecturer ends the class.
-5. The lecturer ends the session. The credential stops working and the session counts toward attendance marks.
-6. The student opens the dashboard, allows location access, and enters the six-digit code or scans the QR code. The browser requests a passkey assertion.
-7. The backend verifies that the student is logged in, enrolled, within 5 metres, has location accuracy of 5 metres or better, uses the correct class credential and passkey, and has not attended already.
-8. If every check succeeds, the application saves a `present` attendance record.
+5. As students check in, the lecturer's selected-course roster refreshes every five seconds and shows them as present. Students who have not checked in are pending until the session ends.
+6. The lecturer ends the session. The credential stops working and any students who did not check in are counted absent.
+7. The student opens the dashboard, allows location access, and enters the six-digit code or scans the QR code. The browser requests a passkey assertion.
+8. The backend verifies that the student is logged in, enrolled, within 20 metres, has location accuracy of 20 metres or better, uses the correct class credential and passkey, and has not attended already.
+9. If every check succeeds, the application saves a `present` attendance record and updates that student's progress immediately.
 
 > The QR code or six-digit code should be displayed by the lecturer. Location checks are performed by the server during check-in; the scanner is not pre-disabled based on distance.
 
@@ -53,34 +54,35 @@ The starter catalog is added idempotently when the API starts and is checked aga
 Location validation is a geofence: a circular area around the class location.
 
 - Lecturer location: latitude and longitude captured from the browser when attendance begins.
-- Allowed radius: fixed at 5 metres around the lecturer's location captured when the class starts. Existing active sessions keep the radius saved when they were created.
+- Allowed radius: fixed at 20 metres around the lecturer's location captured when the class starts. Existing active sessions keep the radius saved when they were created.
 - Student location: captured from the browser immediately before scanning/submitting attendance.
-- The student portal samples high-accuracy location updates for at least 5 seconds and up to 30 seconds, using the best reported accuracy. It stops early when the best reading is 5 metres or better.
-- Minimum accuracy: reject a location whose reported accuracy is worse than 5 metres.
+- The student portal samples high-accuracy location updates for at least 5 seconds and up to 30 seconds, using the best reported accuracy. It stops early when the best reading is 20 metres or better.
+- Minimum accuracy: reject a location whose reported accuracy is worse than 20 metres.
 - Server validation: never trust a location check performed only in React; send the coordinates to the API and calculate the distance again on the backend.
 
 Each attendance record stores `studentLatitude`, `studentLongitude`, `locationAccuracy`, `distanceMeters`, and `accessMethod` for auditing.
 
-GPS can be inaccurate indoors and can be faked by determined users. A reported accuracy of 5 metres or better is required, and the measured student location must be within 5 metres of the lecturer's saved location.
+GPS can be inaccurate indoors and can be faked by determined users. A reported accuracy of 20 metres or better is required, and the measured student location must be within 20 metres of the lecturer's saved location. A 20-metre radius is roughly 30–35 walking steps and may include nearby rooms.
 
-If a phone cannot get a sufficiently accurate reading, allow location access for the site, turn on the device's precise-location setting and Wi-Fi, then retry near a window or outdoors. The app keeps the 5-metre distance and accuracy limits; some indoor locations or devices may still be unable to meet them.
+If a phone cannot get a sufficiently accurate reading, allow location access for the site, turn on the device's precise-location setting and Wi-Fi, then retry near a window or outdoors. The app keeps the 20-metre distance and accuracy limits; some indoor locations or devices may still be unable to meet them.
 
 ## Attendance Mark Calculation
 
-The student dashboard, lecturer report, and CSV export calculate the mark using completed (ended) sessions:
+The student dashboard and lecturer live report include both completed and active sessions, so a successful check-in updates progress immediately. An active session with no check-in is pending, not absent. When the lecturer ends the class, students without a record become absent. The CSV export and its mark include completed sessions only.
 
 ```text
-markOutOfTen = round((classesAttended / totalCompletedSessions) × 10, 1)
+dashboardMarkOutOfTen = round((classesAttended / (completedSessions + activeSessions)) × 10, 1)
+csvMarkOutOfTen = round((classesAttended / completedSessions) × 10, 1)
 ```
 
 Example:
 
 ```text
-8 attended sessions / 10 completed sessions = 80%
+8 attended sessions / 10 sessions = 80%
 80% × 10 = 8.0/10
 ```
 
-Active sessions are not included until ended. If there are no completed sessions, no mark is available yet (shown as `—` in the dashboard and left blank in CSV). Percentages are displayed as whole numbers; marks are rounded to one decimal place. Whether the mark contributes to a final grade is determined by the institution.
+The dashboard's mark is provisional while a session is active and may change until the lecturer ends it. If there are no active or completed sessions, no mark is available yet (shown as `—` in the dashboard); CSV marks are blank when there are no completed sessions. Percentages are displayed as whole numbers; marks are rounded to one decimal place. Whether the mark contributes to a final grade is determined by the institution.
 
 ## Technology Stack
 
@@ -358,7 +360,7 @@ For real-phone camera and location testing, use HTTPS or a secure development tu
 
 ### Physical GPS test checklist
 
-Test on at least two phones with location services enabled: one at the lecturer location, one at 5 metres, one beyond 5 metres, and one with location permission denied. Record the browser-reported accuracy and result for each test. Repeat indoors and outdoors, because GPS accuracy can still prevent a valid check-in.
+Test on at least two phones with location services enabled: one at the lecturer location, one at 20 metres, one beyond 20 metres, and one with location permission denied. Record the browser-reported accuracy and result for each test. Repeat indoors and outdoors, because GPS accuracy can still prevent a valid check-in.
 
 ## Build Order
 
@@ -382,8 +384,9 @@ Test on at least two phones with location services enabled: one at the lecturer 
 - A wrong code or QR payload is rejected.
 - A student outside the permitted radius cannot scan or submit attendance.
 - A student cannot scan twice during one session.
-- Only ended sessions count toward attendance percentages and marks.
-- Marks are rounded to one decimal place and are absent until a course has a completed session.
+- Active check-ins update student progress and the lecturer roster without waiting for the lecturer to end class.
+- Students without a check-in remain pending during class and are marked absent when the session ends.
+- Dashboard marks are rounded to one decimal place and are absent until a course has an active or completed session.
 - CSV export opens correctly in spreadsheet software and includes audit fields and marks out of 10.
 
 ## Future Improvements

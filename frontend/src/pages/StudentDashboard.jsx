@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/Api";
 import { authenticatePasskey, registerPasskey } from "../services/passkey";
 import { getDeviceId } from "../services/device";
 import { logout } from "../services/auth";
 import { Html5Qrcode } from "html5-qrcode";
 
-const maximumLocationAccuracyMeters = 5;
+const maximumLocationAccuracyMeters = 20;
 const locationSamplingWindowMs = 5000;
 const locationTimeoutMs = 30000;
 
@@ -50,6 +51,7 @@ function getBestLocation() {
 }
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const [catalog, setCatalog] = useState([]);
   const [registration, setRegistration] = useState(null);
@@ -88,6 +90,16 @@ export default function StudentDashboard() {
 
   const faculty = catalog.find((item) => item._id === facultyId);
   const department = faculty?.departments.find((item) => item._id === departmentId);
+
+  async function handleLogout() {
+    const result = await logout();
+    navigate("/login", {
+      replace: true,
+      state: result.serverSignedOut ? undefined : {
+        logoutMessage: `Signed out on this browser, but the server could not confirm the session was cleared. ${result.message}`,
+      },
+    });
+  }
 
   async function saveRegistration(event) {
     event.preventDefault();
@@ -160,7 +172,7 @@ export default function StudentDashboard() {
 
   if (loading) return <main className="page"><p>Loading your student space...</p></main>;
   return <main className="page">
-    <header className="page-header"><div><p className="eyebrow">Student portal</p><h1>Welcome, {user.name}</h1><p>Choose your academic path once, then keep your courses current here.</p></div><button onClick={async () => { await logout(); window.location.href = "/login"; }}>Log out</button></header>
+    <header className="page-header"><div><p className="eyebrow">Student portal</p><h1>Welcome, {user.name}</h1><p>Choose your academic path once, then keep your courses current here.</p></div><button type="button" onClick={handleLogout}>Log out</button></header>
     {message && <p className="notice">{message}</p>}
     <section className="panel"><div className="section-heading"><div><p className="eyebrow">Device security</p><h2>{passkeyRegistered ? "Passkey ready" : "Register this device"}</h2><p>{passkeyRegistered ? "Attendance will require this device passkey." : "Register a passkey before checking in. Use Windows Hello, your laptop PIN, fingerprint, phone, or a security key."}</p></div>{!passkeyRegistered && <button className="primary" onClick={setupPasskey}>Register passkey</button>}</div></section>
     <section className="panel"><div className="section-heading"><div><p className="eyebrow">Academic registration</p><h2>{registration ? "Your registration" : "Start your registration"}</h2></div><span className="step">{registration ? "Editable" : "Step 1 of 3"}</span></div>
@@ -172,6 +184,6 @@ export default function StudentDashboard() {
       </form>
     </section>
     {registration && <section className="panel"><div className="section-heading"><div><p className="eyebrow">Attendance</p><h2>Your registered courses</h2></div></div><div className="course-list">{registration.courses.map((course) => <article className="course-row" key={course._id}><div><strong>{course.code}</strong><p>{course.title}</p></div><span>{sessions.filter((session) => session.course._id === course._id).map((session) => session.accessMode === "code" ? <span className="attendance-entry" key={session._id}><input value={attendanceCode} onChange={(event) => setAttendanceCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="6-digit code" /><button className="attendance" disabled={attendanceCode.length !== 6 || !passkeyRegistered} onClick={() => checkIn(session._id)}>Use passkey and location</button></span> : <span key={session._id}><button className="attendance" disabled={!passkeyRegistered} onClick={() => scanQr(session._id)}>Scan class QR</button>{scanningSessionId === session._id && <div id={`attendance-reader-${session._id}`} className="qr-reader" />}</span>)}</span></article>)}</div>{sessions.filter((session) => registration.courses.some((course) => course._id === session.course._id)).length === 0 && <p>No active classes for your courses right now.</p>}</section>}
-    {registration && <section className="panel"><div className="section-heading"><div><p className="eyebrow">Your progress</p><h2>Attendance by course</h2></div></div><div className="progress-grid">{progress.map((course) => <article className="progress-card" key={course._id}><div className="course-row"><div><strong>{course.code}</strong><p>{course.title}</p></div><strong className={progressColor(course.percentage)}>{course.percentage}%</strong></div><div className="progress-track"><span className={progressColor(course.percentage)} style={{ width: `${course.percentage}%` }} /></div><p>{course.present} present of {course.totalSessions} completed session{course.totalSessions === 1 ? "" : "s"} <span className="muted">({course.absent} absent)</span></p><p>Attendance mark: <strong>{course.markOutOfTen === null ? "—" : `${course.markOutOfTen.toFixed(1)}/10`}</strong></p></article>)}</div>{progress.length === 0 && <p>No attendance progress is available yet.</p>}</section>}
+    {registration && <section className="panel"><div className="section-heading"><div><p className="eyebrow">Your progress</p><h2>Attendance by course</h2></div></div><div className="progress-grid">{progress.map((course) => <article className="progress-card" key={course._id}><div className="course-row"><div><strong>{course.code}</strong><p>{course.title}</p></div><strong className={progressColor(course.percentage)}>{course.percentage}%</strong></div><div className="progress-track"><span className={progressColor(course.percentage)} style={{ width: `${course.percentage}%` }} /></div><p>{course.present} present of {course.totalSessions} session{course.totalSessions === 1 ? "" : "s"} <span className="muted">({course.completedSessions} completed, {course.pending} in progress, {course.absent} absent)</span></p><p>Attendance mark{course.pending ? " (including in-progress session)" : ""}: <strong>{course.markOutOfTen === null ? "—" : `${course.markOutOfTen.toFixed(1)}/10`}</strong></p></article>)}</div>{progress.length === 0 && <p>No attendance progress is available yet.</p>}</section>}
   </main>;
 }

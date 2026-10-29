@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getDeviceId } from "../services/device";
 import api from "../services/Api";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [lecturerAccessCode, setLecturerAccessCode] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(location.state?.logoutMessage || "");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event) {

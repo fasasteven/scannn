@@ -1,2 +1,2 @@
-export const attendanceRadiusMeters = 5;
-export const maximumLocationAccuracyMeters = 5;
+export const attendanceRadiusMeters = 20;
+export const maximumLocationAccuracyMeters = 20;

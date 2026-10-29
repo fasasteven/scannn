@@ -386,6 +386,11 @@ a {
   color: #9d4949;
 }
 
+.cell-pending {
+  background: #fff8e6;
+  color: #80621b;
+}
+
 @media (max-width: 760px) {
   .page {
     width: calc(100% - 32px);
