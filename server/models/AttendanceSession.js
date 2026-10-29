@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { attendanceRadiusMeters } from "../utils/attendanceLocation.js";
 
 const attendanceSessionSchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
@@ -11,7 +12,7 @@ const attendanceSessionSchema = new mongoose.Schema({
   location: {
     latitude: { type: Number, required: true, min: -90, max: 90 },
     longitude: { type: Number, required: true, min: -180, max: 180 },
-    radiusMeters: { type: Number, default: 3, min: 3, max: 3 },
+    radiusMeters: { type: Number, default: attendanceRadiusMeters, min: attendanceRadiusMeters, max: attendanceRadiusMeters },
   },
 }, { timestamps: true });
 

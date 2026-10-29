@@ -4,6 +4,7 @@ import Course from "../models/Course.js";
 import User from "../models/User.js";
 import { calculateDistanceMeters } from "../utils/calculateDistance.js";
 import { calculateMarkOutOfTen } from "../utils/attendanceMark.js";
+import { attendanceRadiusMeters, maximumLocationAccuracyMeters } from "../utils/attendanceLocation.js";
 import { verifyPasskey } from "./passkeyController.js";
 import { randomInt } from "crypto";
 
@@ -25,7 +26,7 @@ export async function createSession(req, res, next) {
 		if (!validCoordinate(latitude, -90, 90) || !validCoordinate(longitude, -180, 180)) return res.status(400).json({ message: "A valid class location is required." });
 		const accessMode = req.body.accessMode;
 		if (!["code", "qr"].includes(accessMode)) return res.status(400).json({ message: "Choose either attendance code or QR mode." });
-		const session = await AttendanceSession.create({ course: course._id, lecturer: req.user._id, accessMode, accessCode: createAccessCode(), location: { latitude, longitude, radiusMeters: 3 } });
+		const session = await AttendanceSession.create({ course: course._id, lecturer: req.user._id, accessMode, accessCode: createAccessCode(), location: { latitude, longitude, radiusMeters: attendanceRadiusMeters } });
 		res.status(201).json({ session: { ...session.toObject(), accessCode: session.accessCode } });
 	} catch (error) { next(error); }
 }
@@ -60,9 +61,9 @@ export async function checkIn(req, res, next) {
 		if (!enrolled) return res.status(403).json({ message: "You are not enrolled in this course." });
 		const { latitude, longitude, accuracy } = req.body;
 		if (!validCoordinate(latitude, -90, 90) || !validCoordinate(longitude, -180, 180)) return res.status(400).json({ message: "Your current location is required." });
-		if (!Number.isFinite(accuracy) || accuracy > 3) return res.status(400).json({ message: "Your location accuracy must be 3 meters or better." });
+		if (!Number.isFinite(accuracy) || accuracy > maximumLocationAccuracyMeters) return res.status(400).json({ message: `Your location accuracy must be ${maximumLocationAccuracyMeters} meters or better.` });
 		const distance = calculateDistanceMeters(session.location, { latitude, longitude });
-		if (distance > session.location.radiusMeters) return res.status(403).json({ message: `You are ${Math.round(distance)} meters away. Move within 3 meters of the class location.` });
+		if (distance > session.location.radiusMeters) return res.status(403).json({ message: `You are ${Math.round(distance)} meters away. Move within ${session.location.radiusMeters} meters of the class location.` });
 		const accessMethod = req.body.qrPayload ? "qr" : "code";
 		const record = await AttendanceRecord.create({
 			session: session._id,

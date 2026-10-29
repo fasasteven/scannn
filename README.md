@@ -26,7 +26,7 @@ The attendance mark is calculated out of **10** from completed sessions. It is a
 - Lecturer-selected QR code or six-digit-code mode. The credential is generated once per session; it does not rotate.
 - Student QR-code scanning with a phone camera or six-digit code entry.
 - Passkey registration and verification for attendance check-in.
-- Server-side geofence verification with a strict 3-metre radius.
+- Server-side geofence verification with a strict 5-metre radius.
 - GPS audit fields on each attendance record.
 - Duplicate scan prevention: one attendance record per student per session.
 - Attendance percentage and mark out of 10, based on completed sessions and rounded to one decimal place.
@@ -39,11 +39,11 @@ The starter catalog is added idempotently when the API starts and is checked aga
 
 1. A lecturer creates a course, for example `CSC301 - Database Systems`.
 2. Students enrol in the course.
-3. At the beginning of class, the lecturer starts an attendance session and chooses QR or six-digit code mode. The lecturer's current location is saved with a 3-metre radius.
+3. At the beginning of class, the lecturer starts an attendance session and chooses QR or six-digit code mode. The lecturer's current location is saved with a 5-metre radius.
 4. The server creates one class credential. It remains valid until the lecturer ends the class.
 5. The lecturer ends the session. The credential stops working and the session counts toward attendance marks.
 6. The student opens the dashboard, allows location access, and enters the six-digit code or scans the QR code. The browser requests a passkey assertion.
-7. The backend verifies that the student is logged in, enrolled, within 3 metres, has location accuracy of 3 metres or better, uses the correct class credential and passkey, and has not attended already.
+7. The backend verifies that the student is logged in, enrolled, within 5 metres, has location accuracy of 5 metres or better, uses the correct class credential and passkey, and has not attended already.
 8. If every check succeeds, the application saves a `present` attendance record.
 
 > The QR code or six-digit code should be displayed by the lecturer. Location checks are performed by the server during check-in; the scanner is not pre-disabled based on distance.
@@ -53,14 +53,14 @@ The starter catalog is added idempotently when the API starts and is checked aga
 Location validation is a geofence: a circular area around the class location.
 
 - Lecturer location: latitude and longitude captured from the browser when attendance begins.
-- Allowed radius: currently fixed at 3 metres; this may need to increase after physical-device testing because indoor GPS can be inaccurate.
+- Allowed radius: fixed at 5 metres around the lecturer's location captured when the class starts. Existing active sessions keep the radius saved when they were created.
 - Student location: captured from the browser immediately before scanning/submitting attendance.
-- Minimum accuracy: reject a location whose accuracy is worse than 3 metres.
+- Minimum accuracy: reject a location whose reported accuracy is worse than 5 metres.
 - Server validation: never trust a location check performed only in React; send the coordinates to the API and calculate the distance again on the backend.
 
 Each attendance record stores `studentLatitude`, `studentLongitude`, `locationAccuracy`, `distanceMeters`, and `accessMethod` for auditing.
 
-GPS can be inaccurate indoors and can be faked by determined users. Physical-device testing is required before deciding whether the 3-metre radius is practical.
+GPS can be inaccurate indoors and can be faked by determined users. A reported accuracy of 5 metres or better is required, and the measured student location must be within 5 metres of the lecturer's saved location.
 
 ## Attendance Mark Calculation
 
@@ -353,7 +353,7 @@ For real-phone camera and location testing, use HTTPS or a secure development tu
 
 ### Physical GPS test checklist
 
-Test on at least two phones with location services enabled: one at the lecturer location, one at 3 metres, one beyond 3 metres, and one with location permission denied. Record the browser-reported accuracy and result for each test. Repeat indoors and outdoors, because the current 3-metre radius and 3-metre accuracy threshold may reject valid indoor readings. Do not increase the radius until the results are recorded and reviewed.
+Test on at least two phones with location services enabled: one at the lecturer location, one at 5 metres, one beyond 5 metres, and one with location permission denied. Record the browser-reported accuracy and result for each test. Repeat indoors and outdoors, because GPS accuracy can still prevent a valid check-in.
 
 ## Build Order
 
