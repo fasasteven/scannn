@@ -5,6 +5,50 @@ import { getDeviceId } from "../services/device";
 import { logout } from "../services/auth";
 import { Html5Qrcode } from "html5-qrcode";
 
+const maximumLocationAccuracyMeters = 5;
+const locationSamplingWindowMs = 5000;
+const locationTimeoutMs = 30000;
+
+function getBestLocation() {
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    let bestPosition;
+    let watchId;
+    let samplingIntervalId;
+    let timeoutId;
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      if (samplingIntervalId !== undefined) window.clearInterval(samplingIntervalId);
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      callback(value);
+    };
+
+    watchId = navigator.geolocation.watchPosition((position) => {
+      if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+        bestPosition = position;
+      }
+    }, (error) => finish(reject, error), { enableHighAccuracy: true, maximumAge: 0 });
+
+    samplingIntervalId = window.setInterval(() => {
+      if (Date.now() - startedAt < locationSamplingWindowMs) return;
+      if (bestPosition?.coords.accuracy <= maximumLocationAccuracyMeters) {
+        finish(resolve, bestPosition);
+      }
+    }, 250);
+
+    timeoutId = window.setTimeout(() => {
+      if (bestPosition) {
+        finish(resolve, bestPosition);
+      } else {
+        finish(reject, Object.assign(new Error("Timed out while getting your location."), { code: 3 }));
+      }
+    }, locationTimeoutMs);
+  });
+}
+
 export default function StudentDashboard() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const [catalog, setCatalog] = useState([]);
@@ -64,7 +108,12 @@ export default function StudentDashboard() {
     if (!passkeyRegistered) { setMessage("Register a passkey on this device before checking in."); return; }
     if (!navigator.geolocation) { setMessage("This browser does not support location services."); return; }
     try {
-      const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
+      setMessage("Getting your location. Keep location services on and wait for a GPS reading.");
+      const position = await getBestLocation();
+      if (position.coords.accuracy > maximumLocationAccuracyMeters) {
+        setMessage(`Your best location reading was accurate to about ${position.coords.accuracy.toFixed(1)} metres; attendance requires ${maximumLocationAccuracyMeters} metres or better. Turn on Precise Location, enable Wi-Fi, and try near a window or outdoors.`);
+        return;
+      }
       setMessage("Confirm your passkey to complete attendance.");
       const passkeyResponse = await authenticatePasskey();
       const response = await api.post(`/attendance/sessions/${sessionId}/check-in`, { attendanceCode: code, qrPayload, passkeyResponse, deviceId: getDeviceId(), latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy });
@@ -75,9 +124,9 @@ export default function StudentDashboard() {
     }
     catch (error) {
       const locationMessages = {
-        1: "Allow location access in your browser to check in.",
-        2: "Your location could not be determined. Try again where GPS reception is better.",
-        3: "Getting your location took too long. Try again.",
+        1: "Allow location access for this site and enable Precise Location in your device settings.",
+        2: "Your device could not determine your location. Turn on Location Services and Wi-Fi, then try again near a window or outdoors.",
+        3: "Could not get a location fix. Turn on Location Services and Wi-Fi, then try again near a window or outdoors.",
       };
       setMessage(error.response?.data?.message || locationMessages[error.code] || error.message || "Unable to record attendance.");
     }

@@ -55,12 +55,15 @@ Location validation is a geofence: a circular area around the class location.
 - Lecturer location: latitude and longitude captured from the browser when attendance begins.
 - Allowed radius: fixed at 5 metres around the lecturer's location captured when the class starts. Existing active sessions keep the radius saved when they were created.
 - Student location: captured from the browser immediately before scanning/submitting attendance.
+- The student portal samples high-accuracy location updates for at least 5 seconds and up to 30 seconds, using the best reported accuracy. It stops early when the best reading is 5 metres or better.
 - Minimum accuracy: reject a location whose reported accuracy is worse than 5 metres.
 - Server validation: never trust a location check performed only in React; send the coordinates to the API and calculate the distance again on the backend.
 
 Each attendance record stores `studentLatitude`, `studentLongitude`, `locationAccuracy`, `distanceMeters`, and `accessMethod` for auditing.
 
 GPS can be inaccurate indoors and can be faked by determined users. A reported accuracy of 5 metres or better is required, and the measured student location must be within 5 metres of the lecturer's saved location.
+
+If a phone cannot get a sufficiently accurate reading, allow location access for the site, turn on the device's precise-location setting and Wi-Fi, then retry near a window or outdoors. The app keeps the 5-metre distance and accuracy limits; some indoor locations or devices may still be unable to meet them.
 
 ## Attendance Mark Calculation
 
