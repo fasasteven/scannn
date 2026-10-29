@@ -18,14 +18,18 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [attendanceCode, setAttendanceCode] = useState("");
   const [scanningSessionId, setScanningSessionId] = useState("");
-  const [passkeyRegistered, setPasskeyRegistered] = useState(Boolean(user.passkeyRegistered));
+  const [passkeyRegistered, setPasskeyRegistered] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.get("/courses/catalog"), api.get("/courses/registration"), api.get("/attendance/sessions"), api.get("/attendance/progress")])
-      .then(([catalogResponse, registrationResponse, sessionResponse, progressResponse]) => {
+    Promise.all([api.get("/courses/catalog"), api.get("/courses/registration"), api.get("/attendance/sessions"), api.get("/attendance/progress"), api.get("/auth/passkey/status")])
+      .then(([catalogResponse, registrationResponse, sessionResponse, progressResponse, passkeyStatusResponse]) => {
         setCatalog(catalogResponse.data);
         setSessions(sessionResponse.data);
         setProgress(progressResponse.data);
+        const registered = passkeyStatusResponse.data.passkeyRegistered;
+        setPasskeyRegistered(registered);
+        const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        localStorage.setItem("user", JSON.stringify({ ...savedUser, passkeyRegistered: registered }));
         const saved = registrationResponse.data;
         if (saved.faculty) {
           setRegistration(saved);
@@ -57,10 +61,10 @@ export default function StudentDashboard() {
   }
 
   async function checkIn(sessionId, code = attendanceCode, qrPayload = "") {
+    if (!passkeyRegistered) { setMessage("Register a passkey on this device before checking in."); return; }
     if (!navigator.geolocation) { setMessage("This browser does not support location services."); return; }
     try {
       const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
-      if (!passkeyRegistered) { setMessage("Register a passkey on this device before checking in."); return; }
       setMessage("Confirm your passkey to complete attendance.");
       const passkeyResponse = await authenticatePasskey();
       const response = await api.post(`/attendance/sessions/${sessionId}/check-in`, { attendanceCode: code, qrPayload, passkeyResponse, deviceId: getDeviceId(), latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy });
@@ -69,7 +73,14 @@ export default function StudentDashboard() {
       const progressResponse = await api.get("/attendance/progress");
       setProgress(progressResponse.data);
     }
-    catch (error) { setMessage(error.response?.data?.message || "Unable to record attendance."); }
+    catch (error) {
+      const locationMessages = {
+        1: "Allow location access in your browser to check in.",
+        2: "Your location could not be determined. Try again where GPS reception is better.",
+        3: "Getting your location took too long. Try again.",
+      };
+      setMessage(error.response?.data?.message || locationMessages[error.code] || error.message || "Unable to record attendance.");
+    }
   }
 
   async function setupPasskey() {
@@ -102,7 +113,7 @@ export default function StudentDashboard() {
   return <main className="page">
     <header className="page-header"><div><p className="eyebrow">Student portal</p><h1>Welcome, {user.name}</h1><p>Choose your academic path once, then keep your courses current here.</p></div><button onClick={async () => { await logout(); window.location.href = "/login"; }}>Log out</button></header>
     {message && <p className="notice">{message}</p>}
-    <section className="panel"><div className="section-heading"><div><p className="eyebrow">Device security</p><h2>{passkeyRegistered ? "Passkey ready" : "Register this device"}</h2><p>{passkeyRegistered ? "Attendance will require this device passkey." : "Use Windows Hello, your laptop PIN, fingerprint, phone, or a security key."}</p></div>{!passkeyRegistered && <button className="primary" onClick={setupPasskey}>Register passkey</button>}</div></section>
+    <section className="panel"><div className="section-heading"><div><p className="eyebrow">Device security</p><h2>{passkeyRegistered ? "Passkey ready" : "Register this device"}</h2><p>{passkeyRegistered ? "Attendance will require this device passkey." : "Register a passkey before checking in. Use Windows Hello, your laptop PIN, fingerprint, phone, or a security key."}</p></div>{!passkeyRegistered && <button className="primary" onClick={setupPasskey}>Register passkey</button>}</div></section>
     <section className="panel"><div className="section-heading"><div><p className="eyebrow">Academic registration</p><h2>{registration ? "Your registration" : "Start your registration"}</h2></div><span className="step">{registration ? "Editable" : "Step 1 of 3"}</span></div>
       <form onSubmit={saveRegistration} className="registration-form">
         <label>Faculty<select value={facultyId} onChange={(event) => { setFacultyId(event.target.value); setDepartmentId(""); setCourseIds([]); }} required><option value="">Select a faculty</option>{catalog.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}</select></label>

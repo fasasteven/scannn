@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { login, logout, requestPasswordReset, resetPassword, signup, verifyEmail } from "../controllers/authController.js";
-import { authenticationOptions, registrationOptions, registrationVerify } from "../controllers/passkeyController.js";
+import { authenticationOptions, passkeyStatus, registrationOptions, registrationVerify } from "../controllers/passkeyController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authLimiter } from "../middleware/rateLimiters.js";
 import { allowRoles } from "../middleware/roleMiddleware.js";
@@ -14,6 +14,7 @@ router.post("/password-reset/request", authLimiter, requestPasswordReset);
 router.post("/password-reset/confirm", authLimiter, resetPassword);
 router.post("/logout", logout);
 router.post("/recovery/:userId/revoke", protect, allowRoles("admin"), revokeUserAccess);
+router.get("/passkey/status", protect, passkeyStatus);
 router.post("/passkey/register/options", protect, registrationOptions);
 router.post("/passkey/register/verify", protect, registrationVerify);
 router.post("/passkey/authenticate/options", protect, authenticationOptions);

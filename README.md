@@ -95,6 +95,8 @@ Each attendance record stores `studentLatitude`, `studentLongitude`, `locationAc
 
 Attendance requires a passkey in addition to the QR or six-digit class credential and server-side location check. The private passkey never leaves the authenticator; the server stores only its public key and signature counter.
 
+The QR code and six-digit class credential remain valid until the lecturer ends the active session. Passkey authentication uses a separate, one-time WebAuthn challenge that expires after five minutes; each check-in gets a fresh challenge. This short lifetime protects passkey verification and does not expire the class QR code or attendance code.
+
 To test on a laptop:
 
 1. Start the frontend and backend on `localhost`.
