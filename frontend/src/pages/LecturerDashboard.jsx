@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/Api";
 import QRCode from "qrcode";
 import { logout } from "../services/auth";
+import { getBestLocation, maximumLocationAccuracyMeters } from "../services/location";
 
 export default function LecturerDashboard() {
   const navigate = useNavigate();
@@ -124,8 +125,13 @@ export default function LecturerDashboard() {
   async function startSession(event) {
     event.preventDefault();
     if (!navigator.geolocation) { setMessage("This browser does not support location services."); return; }
+    setMessage("Getting a precise class location. Keep location services on while the reading is collected.");
     try {
-      const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
+      const position = await getBestLocation();
+      if (position.coords.accuracy > maximumLocationAccuracyMeters) {
+        setMessage(`The best class location reading was accurate to about ${position.coords.accuracy.toFixed(1)} metres; it must be ${maximumLocationAccuracyMeters} metres or better. Turn on Precise Location, enable Wi-Fi, and try near a window or outdoors.`);
+        return;
+      }
       const response = await api.post("/attendance/sessions", { courseId, accessMode: attendanceMode, latitude: position.coords.latitude, longitude: position.coords.longitude });
       const session = { ...response.data.session, course: myCourses.find((course) => course._id === courseId) };
       setActiveSessions((current) => [...current, session]);
@@ -135,7 +141,14 @@ export default function LecturerDashboard() {
       }
       setMessage(`Class started. Students must be within ${response.data.session.location.radiusMeters} meters of this location.`);
     }
-    catch (error) { setMessage(error.response?.data?.message || "Unable to start session."); }
+    catch (error) {
+      const locationMessages = {
+        1: "Allow location access for this site and enable Precise Location in your device settings.",
+        2: "Your device could not determine the class location. Turn on Location Services and Wi-Fi, then try again near a window or outdoors.",
+        3: "Could not get a precise class location. Turn on Location Services and Wi-Fi, then try again near a window or outdoors.",
+      };
+      setMessage(error.response?.data?.message || locationMessages[error.code] || "Unable to start session.");
+    }
   }
 
   async function endSession(sessionId) {
