@@ -1,4 +1,4 @@
-export const maximumLocationAccuracyMeters = 20;
+export const maximumLocationAccuracyMeters = 75;
 
 const locationSamplingWindowMs = 5000;
 const locationTimeoutMs = 30000;
